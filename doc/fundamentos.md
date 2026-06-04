@@ -1,4 +1,5 @@
-# Titulo del proyecto
+# Fundamentos
+## Titulo del proyecto
 Brazo robótico programable mediante ROS para automatización de tareas repetitivas basado en grabación y reproducción de trayectorias.
 
 ## Idea

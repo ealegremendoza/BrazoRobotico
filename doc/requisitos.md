@@ -1,7 +1,7 @@
-# Titulo del proyecto
-Brazo robótico programable mediante ROS para automatización de tareas repetitivas basado en grabación y reproducción de trayectorias.
-
 # Requisitos del proyecto
+
+## Titulo del proyecto
+Brazo robótico programable mediante ROS para automatización de tareas repetitivas basado en grabación y reproducción de trayectorias.
 
 ## Requisitos funcionales
 - El brazo robótico tiene que ser capaz de:
@@ -34,37 +34,28 @@ Brazo robótico programable mediante ROS para automatización de tareas repetiti
     - autoiniciar el sistema de control del robot cuando se enciende.
 
 ## Requisitos técnicos
-- El brazo robótico debe contar con 4 grados de libertad? 5? No se!
-    - Cómo decidir el modelo?
-        - Según los servos que voy a comprar?
-            - Los Hiwonder HTD-35H no me convienen porque son muy nuevos en la industria y no parece tener mucho soporte de parte de la comunidad.
-            - Me convienen comprar los STS3215 porque ya estan asentados y están en ML incluso. Sacrifico un pelin de precision pero creo que para el proyecto vendran bien.
-        - El curso que estoy haciendo es de 3+1 DOF. Me gustaría que pudiera rotar la pieza pero siento que será más dificil.
+### Brazo robótico
+- Se realizará el brazo robótico que se muestra en el proyecto SO-ARM100. Ver referencias.md en el caso de que se quiera profundizar sobre el tema.
+- El proyecto SO-ARM100 contempla 2 brazos robóticos, uno lider y otro seguidor. Sin embargo, se construirá un solo brazo de modo que sea lider cuando se ponga en modo grabación el brazo y en modo seguidor cuando se ejecute la trayectoria guardada.
+- Las piezas del brazo robótico se imprimiran con impresora 3D. Se prototipará con PLA, pasando a PETG cuando se cuente con el diseño final.
+- Utilizará 6 servomotores STS3215. Esto le proporcionará 5 grados de libertád más el grip. Los mismos se comprarán.
+- Contará con una placa driver para manejo de servomotores STS3215. La misma se comprará.
+
+
+### Controlador de brazo
+- A definir
+
+### Computadora integrada
+- A definir.
+- Tiene que soportar ROS2.
+
+### UI
+- A definir
+- Deberá contar con display
+- Deberá contar con botones
 
 ## Referencias
-- Brazo Robótico (KUKA inspired): Diseño y Ensamblaje Completo. https://www.youtube.com/watch?v=ixrZgr7dIdw
-    - 4 DOF + grip
-    - Solo que usa Matlab como UI, yo no estoy pensando usar una aplicación de escritorio. 
-    - Tampoco usa ROS, solamente envia ordenes de movimiento a los servomotores. 
-    - Pero ejemplifica lo que quiero hacer. 
-    
-- Construí un Brazo Robótico (Inspirado en KUKA) desde cero!. https://www.youtube.com/watch?v=D84KoitsC-o
-    - 4 DOF + grip
-    - Me gusta más el diseño.
-    - Solo que usa Matlab como UI, yo no estoy pensando usar una aplicación de escritorio. 
-    - Tampoco usa ROS, solamente envia ordenes de movimiento a los servomotores. 
-    - Pero ejemplifica lo que quiero hacer. 
-    
-- Brazo robótico con Arduino - Robotic Arm - Guardar/Reproducir/Exportar/Importar Movimientos. https://www.youtube.com/watch?v=1b1YxPmp97I
-    - 5 DOF +grip
-    - Solo que usa Matlab como UI, yo no estoy pensando usar una aplicación de escritorio. 
-    - Tampoco usa ROS, solamente envia ordenes de movimiento a los servomotores. 
-    - Pero ejemplifica lo que quiero hacer. 
-    - El proveedor provee archivos formato STEP para hacer modificaciones.
-    
-- Testing of Feetech STS3215 Servomotor: Backlash, Repeatability, and Torque
-    - Link https://robonine.com/testing-of-feetech-sts3215-servomotor-backlash-repeatability-and-torque/
+Ver referencias.md
     
 ## Materiales
-- 6 Servos Sts3215 De 7,4 V Para Brazo Robótico So-arm100 De 1
-    - Link: https://www.mercadolibre.com.ar/6-servos-sts3215-de-74-v-para-brazo-robotico-so-arm100-de-1/p/MLA2037577958#polycard_client=search-desktop&be_origin=backend&search_layout=grid&position=11&type=product&tracking_id=47835afb-007a-4a73-8f4d-cf8db33b5aca&wid=MLA1790180591&sid=search
+Ver materiales.md

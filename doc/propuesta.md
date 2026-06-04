@@ -1,4 +1,4 @@
-## Propuesta aprobada por la cátedra
+# Propuesta aprobada por la cátedra
 El proyecto consiste en el desarrollo de un brazo robótico orientado a la automatización de tareas repetitivas de manipulación de objetos, implementando un sistema básico de programación por demostración (Programming by Demonstration, PbD). El objetivo principal es construir un manipulador robótico capaz de aprender trayectorias mediante el movimiento manual realizado por el usuario y posteriormente reproducirlas de forma automática con precisión y repetibilidad.
 
 El sistema estará basado en el conjunto de librerías de ROS (Robot Operating System), el cual permitirá manejar la lógica de control, cinemática y planificación de movimientos del brazo robótico. El manipulador contará inicialmente con cinco grados de libertad, utilizando servomotores de precisión y una pinza capaz de sujetar objetos livianos para operaciones de tipo pick-and-place.
