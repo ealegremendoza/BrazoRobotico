@@ -152,6 +152,8 @@ A definir.
 
 ## Autor
 
-Ezequiel Alegre Mendoza  
+Alumno: Ezequiel Alegre Mendoza 
+Tutores: Ing. Fernando Fiamberti, Ing. Claudia Orlandi
+Docente: Ing. Silvio Tapino
 Proyecto Final - Ingeniería Electrónica
 
