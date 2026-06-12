@@ -151,9 +151,8 @@ Archivos Markdown principales:
 A definir.
 
 ## Autor
-
-Alumno: Ezequiel Alegre Mendoza 
-Tutores: Ing. Fernando Fiamberti, Ing. Claudia Orlandi
-Docente: Ing. Silvio Tapino
-Proyecto Final - Ingeniería Electrónica
+- Alumno: Ezequiel Alegre Mendoza 
+- Tutores: Ing. Fernando Fiamberti, Ing. Claudia Orlandi
+- Docente: Ing. Silvio Tapino
+- Proyecto Final - Ingeniería Electrónica
 
