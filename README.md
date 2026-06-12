@@ -101,7 +101,8 @@ BrazoRobotico/
     ├── img/          # Imágenes y diagramas del proyecto
     ├── md/           # Documentación en Markdown
     ├── pdf/          # Documentos exportados en PDF
-    └── xls/          # Planillas de gestión y trazabilidad
+    └── tables/       # Planillas de gestión y trazabilidad
+    └── datasheets/   # Hojas de datos  
 ```
 
 Archivos Markdown principales:
@@ -153,3 +154,4 @@ A definir.
 
 Ezequiel Alegre Mendoza  
 Proyecto Final - Ingeniería Electrónica
+
