@@ -1,4 +1,4 @@
-# Brazo Robótico Programable con ROS 2
+# Brazo robótico programable mediante ROS para automatización de tareas repetitivas basado en grabación y reproducción de trayectorias
 
 Proyecto Final de Ingeniería Electrónica orientado al desarrollo de un brazo robótico de bajo costo para automatización de tareas repetitivas mediante grabación y reproducción de trayectorias.
 
