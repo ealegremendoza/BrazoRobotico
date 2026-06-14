@@ -300,7 +300,21 @@ Este dimensionamiento contempla:
 
 El dimensionamiento final deberá validarse mediante mediciones de consumo durante las pruebas del prototipo.
 
-### R7.3 - Actuadores del brazo
+### R7.3 - Fabricación de bajo costo
+
+El brazo robótico deberá contemplar una construcción que permita reducir costos de fabricación y facilitar la reposición de piezas.
+
+La estructura mecánica principal deberá fabricarse mediante impresión 3D, priorizando piezas de bajo costo y fáciles de reemplazar.
+
+### R7.4 - Grado de protección
+
+El equipo será considerado de uso interior.
+
+Como criterio inicial, el conjunto general se considerará apto para entorno interior controlado. El gabinete de electrónica deberá brindar protección suficiente para evitar contactos accidentales con los componentes internos (IP40 o superior).
+
+No se contempla, en la versión inicial, operación bajo lluvia, salpicaduras, polvo industrial o ambientes exteriores.
+
+### R7.5 - Actuadores del brazo
 
 El brazo utilizará servomotores inteligentes con realimentación de posición para permitir grabación y reproducción de trayectorias.
 
@@ -314,7 +328,7 @@ Los actuadores deberán permitir:
 * Comunicación con el controlador del brazo.
 * Ejecución de movimientos repetitivos.
 
-### R7.4 - Capacidad de carga
+### R7.6 - Capacidad de carga
 
 El brazo deberá estar diseñado para manipular objetos de hasta 200 g en el prototipo inicial.
 
@@ -322,46 +336,24 @@ Este valor representa el objetivo de carga útil del proyecto y deberá validars
 
 El brazo no estará destinado a manipular cargas pesadas ni objetos que comprometan la estabilidad mecánica del conjunto.
 
-### R7.5 - Fabricación de bajo costo
-
-El brazo robótico deberá contemplar una construcción que permita reducir costos de fabricación y facilitar la reposición de piezas.
-
-La estructura mecánica principal deberá fabricarse mediante impresión 3D, priorizando piezas de bajo costo y fáciles de reemplazar.
-
-### R7.6 - Material de impresión
+### R7.7 - Material de impresión
 
 Para la etapa de prototipo se utilizará PLA o PLA+.
 
 Para una versión final o de mayor robustez se contempla el uso de PETG en piezas estructurales, siempre que la impresora disponible y los ensayos mecánicos lo permitan.
 
-La selección final del material deberá considerar:
-
-* Rigidez de las piezas.
-* Facilidad de impresión.
-* Costo.
-* Disponibilidad.
-* Resistencia mecánica suficiente para la carga útil objetivo.
-* Facilidad de reposición ante rotura o desgaste.
-
-### R7.7 - Modelo mecánico de referencia
+### R7.8 - Modelo mecánico de referencia
 
 El diseño mecánico tomará como referencia el proyecto SO-ARM100/SO-ARM101.
 
 El proyecto no construirá dos brazos separados de tipo líder y seguidor. En su lugar, se construirá un único brazo capaz de funcionar como brazo de enseñanza durante la grabación y como brazo ejecutor durante la reproducción.
 
-### R7.8 - Gabinete e integración electrónica
+### R7.9 - Gabinete e integración electrónica
 
-El sistema deberá contar con una integración física ordenada para alojar la electrónica, la alimentación y la interfaz de usuario.
+El sistema deberá contar con una integración física para alojar la electrónica, la alimentación y la interfaz de usuario.
 
 El gabinete o soporte de electrónica deberá proteger los componentes internos frente a contactos accidentales durante el uso normal.
 
-### R7.9 - Grado de protección
-
-El equipo será considerado de uso interior.
-
-Como criterio inicial, el conjunto general se considerará apto para entorno interior controlado. El gabinete de electrónica deberá brindar protección suficiente para evitar contactos accidentales con los componentes internos.
-
-No se contempla, en la versión inicial, operación bajo lluvia, salpicaduras, polvo industrial o ambientes exteriores.
 
 ## Requisitos de validación y pruebas
 
@@ -407,31 +399,6 @@ La medición deberá contemplar, como mínimo:
 * Condiciones de mayor esfuerzo mecánico.
 
 El resultado de estas mediciones deberá utilizarse para confirmar o ajustar el dimensionamiento de la fuente.
-
-## Requisitos de documentación
-
-### RD1 - Documentación de requisitos
-
-El proyecto deberá mantener actualizado el archivo de requisitos del sistema.
-
-Los requisitos deberán estar organizados por tipo o categoría y deberán mantener relación con la matriz de trazabilidad del proyecto.
-
-### RD2 - Documentación de trazabilidad
-
-El proyecto deberá contar con una matriz de trazabilidad que vincule los requisitos con sus objetivos, implementación, importancia, fecha y comentarios.
-
-### RD3 - Documentación técnica
-
-El proyecto deberá documentar las decisiones técnicas principales, incluyendo:
-
-* Arquitectura general del sistema.
-* Componentes seleccionados.
-* Materiales de fabricación.
-* Alimentación eléctrica.
-* Procedimiento de operación.
-* Procedimiento de calibración.
-* Validaciones realizadas.
-* Limitaciones del prototipo.
 
 ## Requisitos de expansiones futuras
 
@@ -491,24 +458,3 @@ El proyecto estará sujeto a las siguientes restricciones:
 * El prototipo estará destinado a uso interior.
 * La estructura será fabricada mediante impresión 3D.
 * Las especificaciones finales deberán validarse experimentalmente durante la etapa de pruebas.
-
-## Criterios de aceptación generales
-
-El proyecto se considerará funcionalmente aceptable si cumple con los siguientes criterios:
-
-* El usuario puede encender el sistema de forma segura.
-* El usuario puede colocar el brazo en modo enseñanza.
-* El usuario puede mover manualmente el brazo para enseñar una tarea.
-* El sistema puede grabar una trayectoria.
-* El sistema puede guardar una trayectoria.
-* El usuario puede seleccionar una trayectoria guardada.
-* El brazo puede reproducir una trayectoria automáticamente.
-* El usuario puede borrar una trayectoria almacenada.
-* El sistema conserva trayectorias luego de apagarse.
-* El sistema informa su estado de operación.
-* El usuario puede detener la operación ante una condición inesperada.
-* El brazo puede manipular un objeto liviano de hasta 200 g.
-* El brazo puede repetir una trayectoria con resultados consistentes.
-* El sistema puede validarse mediante simulación o pruebas previas.
-* El prototipo puede alimentarse desde la red eléctrica mediante una fuente adecuada.
-* Las piezas principales del brazo pueden fabricarse mediante impresión 3D.
