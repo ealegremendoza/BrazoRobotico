@@ -310,7 +310,7 @@ La estructura mecánica principal deberá fabricarse mediante impresión 3D, pri
 
 El equipo será considerado de uso interior.
 
-Como criterio inicial, el conjunto general se considerará apto para entorno interior controlado. El gabinete de electrónica deberá brindar protección suficiente para evitar contactos accidentales con los componentes internos (IP40 o superior).
+Como criterio inicial, el conjunto general se considerará apto para entorno interior controlado. El gabinete de control deberá brindar protección suficiente para evitar contactos accidentales con los componentes internos (IP40 o superior).
 
 No se contempla, en la versión inicial, operación bajo lluvia, salpicaduras, polvo industrial o ambientes exteriores.
 
@@ -383,7 +383,7 @@ La prueba deberá realizarse con una trayectoria previamente grabada por el usua
 
 El sistema deberá superar una prueba de precisión funcional acorde al objetivo del proyecto.
 
-Como prueba demostrativa, se propone que el brazo pueda colocar un anillo sobre un dedo de una mano impresa en 3D.
+Se propone que el brazo pueda colocar un anillo sobre un dedo de una mano impresa en 3D.
 
 ### R8.5 - Validación de consumo eléctrico
 
