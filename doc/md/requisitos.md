@@ -284,7 +284,23 @@ Para el contexto de uso previsto, se considera alimentación desde red domicilia
 
 La alimentación interna del equipo deberá proveer las tensiones necesarias para los actuadores, la computadora integrada, la interfaz de usuario y los módulos auxiliares.
 
-### R7.2 - Dimensionamiento preliminar de fuente
+
+### R7.2 - Fabricación de bajo costo
+
+El brazo robótico deberá contemplar una construcción que permita reducir costos de fabricación y facilitar la reposición de piezas.
+
+La estructura mecánica principal deberá fabricarse mediante impresión 3D, priorizando piezas de bajo costo y fáciles de reemplazar.
+
+
+### R7.3 - Grado de protección
+
+El equipo será considerado de uso interior.
+
+Como criterio inicial, el conjunto general se considerará apto para entorno interior controlado. El gabinete de control deberá brindar protección suficiente para evitar contactos accidentales con los componentes internos (IP40 o superior).
+
+No se contempla, en la versión inicial, operación bajo lluvia, salpicaduras, polvo industrial o ambientes exteriores.
+
+### R7.4 - Dimensionamiento preliminar de fuente
 
 El sistema deberá contar con una fuente principal dimensionada para alimentar simultáneamente el brazo robótico, la computadora integrada y la interfaz de usuario.
 
@@ -299,20 +315,6 @@ Este dimensionamiento contempla:
 * Posibilidad de incorporar convertidores DC-DC para las tensiones internas requeridas.
 
 El dimensionamiento final deberá validarse mediante mediciones de consumo durante las pruebas del prototipo.
-
-### R7.3 - Fabricación de bajo costo
-
-El brazo robótico deberá contemplar una construcción que permita reducir costos de fabricación y facilitar la reposición de piezas.
-
-La estructura mecánica principal deberá fabricarse mediante impresión 3D, priorizando piezas de bajo costo y fáciles de reemplazar.
-
-### R7.4 - Grado de protección
-
-El equipo será considerado de uso interior.
-
-Como criterio inicial, el conjunto general se considerará apto para entorno interior controlado. El gabinete de control deberá brindar protección suficiente para evitar contactos accidentales con los componentes internos (IP40 o superior).
-
-No se contempla, en la versión inicial, operación bajo lluvia, salpicaduras, polvo industrial o ambientes exteriores.
 
 ### R7.5 - Actuadores del brazo
 
@@ -386,6 +388,8 @@ El sistema deberá superar una prueba de precisión funcional acorde al objetivo
 Se propone que el brazo pueda colocar un anillo sobre un dedo de una mano impresa en 3D.
 
 ### R8.5 - Validación de consumo eléctrico
+
+Sería deseable implementar un monitoreo del consumo eléctrico del sistema para poder limitarlo y realizar secuencias de detención preventivas.
 
 El consumo eléctrico del sistema deberá medirse durante las pruebas del prototipo.
 
