@@ -239,7 +239,7 @@ El software deberá organizarse de forma modular para coordinar el movimiento de
 El sistema deberá separar, como mínimo, las siguientes responsabilidades:
 
 * Control del brazo.
-* Lectura de estado de actuadores.
+* Lectura de estado de los servomotores.
 * Grabación de trayectorias.
 * Reproducción de trayectorias.
 * Gestión de trayectorias almacenadas.
@@ -292,15 +292,7 @@ El brazo robótico deberá contemplar una construcción que permita reducir cost
 La estructura mecánica principal deberá fabricarse mediante impresión 3D, priorizando piezas de bajo costo y fáciles de reemplazar.
 
 
-### R7.3 - Grado de protección
-
-El equipo será considerado de uso interior.
-
-Como criterio inicial, el conjunto general se considerará apto para entorno interior controlado. El gabinete de control deberá brindar protección suficiente para evitar contactos accidentales con los componentes internos (IP40 o superior).
-
-No se contempla, en la versión inicial, operación bajo lluvia, salpicaduras, polvo industrial o ambientes exteriores.
-
-### R7.4 - Dimensionamiento preliminar de fuente
+### R7.3 - Dimensionamiento preliminar de fuente
 
 El sistema deberá contar con una fuente principal dimensionada para alimentar simultáneamente el brazo robótico, la computadora integrada y la interfaz de usuario.
 
@@ -308,15 +300,15 @@ Como criterio preliminar de diseño, se adopta una fuente principal switching de
 
 Este dimensionamiento contempla:
 
-* Alimentación de servomotores del brazo.
-* Alimentación de la computadora integrada.
+* Alimentación de servomotores del brazo (en modo bloqueado).
+* Alimentación de la computadora integrada (considerando expansiones de procesamiento de imágen e IA).
 * Alimentación de la interfaz de usuario.
 * Margen de seguridad para picos de consumo.
 * Posibilidad de incorporar convertidores DC-DC para las tensiones internas requeridas.
 
 El dimensionamiento final deberá validarse mediante mediciones de consumo durante las pruebas del prototipo.
 
-### R7.5 - Actuadores del brazo
+### R7.4 - Actuadores del brazo
 
 El brazo utilizará servomotores inteligentes con realimentación de posición para permitir grabación y reproducción de trayectorias.
 
@@ -330,7 +322,7 @@ Los actuadores deberán permitir:
 * Comunicación con el controlador del brazo.
 * Ejecución de movimientos repetitivos.
 
-### R7.6 - Capacidad de carga
+### R7.5 - Capacidad de carga
 
 El brazo deberá estar diseñado para manipular objetos de hasta 200 g en el prototipo inicial.
 
@@ -338,19 +330,19 @@ Este valor representa el objetivo de carga útil del proyecto y deberá validars
 
 El brazo no estará destinado a manipular cargas pesadas ni objetos que comprometan la estabilidad mecánica del conjunto.
 
-### R7.7 - Material de impresión
+### R7.6 - Material de impresión
 
 Para la etapa de prototipo se utilizará PLA o PLA+.
 
 Para una versión final o de mayor robustez se contempla el uso de PETG en piezas estructurales, siempre que la impresora disponible y los ensayos mecánicos lo permitan.
 
-### R7.8 - Modelo mecánico de referencia
+### R7.7 - Modelo mecánico de referencia
 
 El diseño mecánico tomará como referencia el proyecto SO-ARM100/SO-ARM101.
 
 El proyecto no construirá dos brazos separados de tipo líder y seguidor. En su lugar, se construirá un único brazo capaz de funcionar como brazo de enseñanza durante la grabación y como brazo ejecutor durante la reproducción.
 
-### R7.9 - Gabinete e integración electrónica
+### R7.8 - Gabinete e integración electrónica
 
 El sistema deberá contar con una integración física para alojar la electrónica, la alimentación y la interfaz de usuario.
 
@@ -449,6 +441,9 @@ Esta expansión podrá implementarse mediante una aplicación de escritorio, pan
 El brazo deberá contemplar la posibilidad de incorporar herramientas o accesorios de manipulación específicos en futuras versiones.
 
 Estas herramientas podrán incluir variantes de pinza, soportes, adaptadores o efectores finales especializados.
+
+### R9.4 - Expansión futura de interfaz local
+Sería deseable que el sistema de interfaz local también cuente con potenciómetros dedicados al movimiento de cada servomotor en el caso de que el operario quisiera manipular el brazo de esa forma en lugar de tocarlo. Esto puede resultar útil al momento de hacer pruebas.
 
 ## Restricciones del proyecto
 
