@@ -120,6 +120,7 @@ Archivos Markdown principales:
 | `doc/md/cursos.md` | Recursos de aprendizaje relacionados con modelado 3D. |
 | `doc/md/links.md` | Links útiles, tablero de seguimiento y bitácora. |
 | `doc/md/respaldo.md` | Documento de respaldo con descripción general, FODA y desafío tecnológico. |
+| `doc/md/tareas.md` | Listado de tareas tareas del proyecto. |
 
 
 ## Próximos pasos

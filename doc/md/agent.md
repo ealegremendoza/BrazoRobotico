@@ -20,3 +20,5 @@ Ver requisitos del proyecto en el archivo requisitos.md
 ## Referencias del proyecto
 Ver referencias.md
 
+## Tareas
+Ver tareas del proyecto en tareas.md
