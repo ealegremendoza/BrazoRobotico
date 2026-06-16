@@ -1,47 +1,44 @@
-| ID  | Tarea                                                                                     |Conservar|
-| --- | ----------------------------------------------------------------------------------------- |---------|
-| T01 | Revisar y cerrar alcance del proyecto.                                                    |NO|
-| T02 | Definir criterios de aceptación: objeto liviano, precisión, repetibilidad y prueba final. |NO|
-| T03 | Relevar requisitos funcionales, de usuario y técnicos.                                    |NO|
-| T04 | Definir arquitectura general del sistema.                                                 |SI|
-| T05 | Definir arquitectura ROS 2 del brazo robótico.                                            |SI|
-| T06 | Definir modo líder/grabación y modo seguidor/reproducción.                                |SI|
-| T07 | Seleccionar componentes principales del sistema.                                          |SI|
-| T08 | Comprar servomotores STS3215.                                                             |SI|
-| T09 | Comprar placa driver para servomotores.                                                   |SI|
-| T10 | Comprar fuente de alimentación principal.                                                 |SI|
-| T11 | Comprar display LCD 20x4 y botonera.                                                      |SI|
-| T12 | Preparar entorno de desarrollo ROS 2.                                                     |SI|
-| T13 | Preparar repositorio y estructura del software.                                           |SI|
-| T14 | Modelar brazo SO-ARM100 para simulación.                                                  |SI|
-| T15 | Configurar modelo del brazo en Gazebo.                                                    |SI|
-| T16 | Validar movimiento básico en simulación.                                                  |SI|
-| T17 | Implementar control individual de servomotores.                                           |SI|
-| T18 | Implementar lectura de posición de cada articulación.                                     |SI|
-| T19 | Implementar calibración inicial del brazo.                                                |SI|
-| T20 | Implementar posición Home.                                                                |SI|
-| T21 | Implementar movimiento manual del brazo.                                                  |SI|
-| T22 | Implementar grabación de trayectorias.                                                    |SI|
-| T23 | Implementar almacenamiento persistente de trayectorias.                                   |SI|
-| T24 | Implementar selección de trayectorias guardadas.                                          |SI|
-| T25 | Implementar reproducción automática de trayectorias.                                      |SI|
-| T26 | Implementar eliminación de trayectorias.                                                  |SI|
-| T27 | Implementar estados del sistema: listo, grabando, reproduciendo y error.                  |SI|
-| T28 | Implementar interfaz con display LCD.                                                     |SI|
-| T29 | Implementar interfaz con botonera.                                                        |SI|
-| T30 | Implementar parada de emergencia o detención segura.                                      |SI|
-| T31 | Configurar arranque automático del sistema.                                               |SI|
-| T32 | Imprimir piezas del brazo en PLA para prototipo.                                          |SI|
-| T33 | Ensamblar estructura mecánica del brazo.                                                  |SI|
-| T34 | Montar servomotores y transmisión mecánica.                                               |NO|
-| T35 | Montar electrónica en gabinete.                                                           |SI|
-| T36 | Cablear alimentación, servos, controlador, display y botonera.                            |SI|
-| T37 | Verificar consumo eléctrico del sistema.                                                  |SI|
-| T38 | Probar manipulación de objetos livianos.                                                  |SI|
-| T39 | Probar repetibilidad de trayectorias.                                                     |SI|
-| T40 | Probar precisión de movimiento.                                                           |SI|
-| T41 | Ejecutar prueba final: colocar anillo en dedo impreso en 3D.                              |SI|
-| T42 | Corregir fallas detectadas en pruebas.                                                    |SI|
-| T43 | Migrar piezas finales a PETG si corresponde.                                              |SI|
-| T44 | Documentar instalación, uso y operación del sistema.                                      |SI|
-| T45 | Documentar resultados de pruebas y validación final.                                      |SI|
+| ID  | Fase                      | Tarea                                                                    | Duración estimada | Dependencias                 | Entregable / criterio de cierre                                     |
+| --- | ------------------------- | ------------------------------------------------------------------------ | ----------------- | ---------------------------- | ------------------------------------------------------------------- |
+| T01 | Diseño general            | Definir arquitectura general del sistema.                                |                   | —                            | Diagrama o descripción de arquitectura general aprobada.            |
+| T02 | Diseño de software        | Definir arquitectura ROS 2 del brazo robótico.                           |                   | T01                          | Nodos, tópicos, servicios y responsabilidades definidos.            |
+| T03 | Diseño funcional          | Definir modo líder/grabación y modo seguidor/reproducción.               |                   | T01, T02                     | Flujo de operación de ambos modos documentado.                      |
+| T04 | Selección de hardware     | Seleccionar componentes principales del sistema.                         |                   | T01                          | Lista de componentes definida.                                      |
+| T05 | Compras                   | Comprar servomotores STS3215.                                            |                   | T04                          | Servomotores disponibles para el proyecto.                          |
+| T06 | Compras                   | Comprar placa driver para servomotores.                                  |                   | T04                          | Driver disponible para pruebas e integración.                       |
+| T07 | Compras                   | Comprar fuente de alimentación principal.                                |                   | T04                          | Fuente disponible y acorde al consumo previsto.                     |
+| T08 | Compras                   | Comprar display LCD 20x4 y botonera.                                     |                   | T04                          | Interfaz física disponible para integración.                        |
+| T09 | Preparación de software   | Preparar entorno de desarrollo ROS 2.                                    |                   | T02                          | Entorno ROS 2 instalado y probado.                                  |
+| T10 | Preparación de software   | Preparar repositorio y estructura del software.                          |                   | T09                          | Estructura de paquetes y carpetas creada.                           |
+| T11 | Simulación                | Modelar brazo SO-ARM100 para simulación.                                 |                   | T02, T09                     | Modelo del brazo disponible para ROS 2/Gazebo.                      |
+| T12 | Simulación                | Configurar modelo del brazo en Gazebo.                                   |                   | T11                          | Brazo cargado correctamente en Gazebo.                              |
+| T13 | Simulación                | Validar movimiento básico en simulación.                                 |                   | T12                          | Movimiento básico verificado en entorno simulado.                   |
+| T14 | Control de actuadores     | Implementar control individual de servomotores.                          |                   | T05, T06, T09, T10           | Cada servomotor puede recibir comandos individuales.                |
+| T15 | Control de actuadores     | Implementar lectura de posición de cada articulación.                    |                   | T14                          | Posición de cada articulación disponible para el sistema.           |
+| T16 | Calibración               | Implementar calibración inicial del brazo.                               |                   | T15                          | Procedimiento de calibración ejecutable.                            |
+| T17 | Calibración               | Implementar posición Home.                                               |                   | T16                          | Posición de referencia definida y alcanzable.                       |
+| T18 | Movimiento manual         | Implementar movimiento manual del brazo.                                 |                   | T14, T15, T17                | El brazo puede moverse manualmente para enseñanza.                  |
+| T19 | Grabación de trayectorias | Implementar grabación de trayectorias.                                   |                   | T15, T18                     | Trayectoria registrada con posiciones y tiempos.                    |
+| T20 | Gestión de trayectorias   | Implementar almacenamiento persistente de trayectorias.                  |                   | T19                          | Trayectorias guardadas y recuperables tras reinicio.                |
+| T21 | Gestión de trayectorias   | Implementar selección de trayectorias guardadas.                         |                   | T20                          | Trayectoria seleccionable desde el sistema.                         |
+| T22 | Reproducción automática   | Implementar reproducción automática de trayectorias.                     |                   | T20, T21                     | Trayectoria almacenada reproducida correctamente.                   |
+| T23 | Gestión de trayectorias   | Implementar eliminación de trayectorias.                                 |                   | T20, T21                     | Trayectorias almacenadas pueden borrarse correctamente.             |
+| T24 | Estados del sistema       | Implementar estados del sistema: listo, grabando, reproduciendo y error. |                   | T19, T22, T23                | Estados visibles y coherentes con la operación real.                |
+| T25 | Interfaz de usuario       | Implementar interfaz con display LCD.                                    |                   | T08, T24                     | Display muestra estados y opciones principales.                     |
+| T26 | Interfaz de usuario       | Implementar interfaz con botonera.                                       |                   | T08, T24                     | Botonera permite operar funciones principales.                      |
+| T27 | Seguridad                 | Implementar parada de emergencia o detención segura.                     |                   | T14, T22, T24                | Ejecución detenible ante condición anormal.                         |
+| T28 | Sistema embebido          | Configurar arranque automático del sistema.                              |                   | T09, T10, T24                | Servicios principales inician al encender el equipo.                |
+| T29 | Fabricación mecánica      | Imprimir piezas del brazo en PLA para prototipo.                         |                   | T04                          | Piezas impresas y listas para ensamblaje.                           |
+| T30 | Fabricación mecánica      | Ensamblar estructura mecánica del brazo.                                 |                   | T29                          | Estructura del brazo armada físicamente.                            |
+| T31 | Integración electrónica   | Montar electrónica en gabinete.                                          |                   | T05, T06, T07, T08           | Electrónica montada y organizada en gabinete.                       |
+| T32 | Integración electrónica   | Cablear alimentación, servos, controlador, display y botonera.           |                   | T30, T31                     | Sistema cableado y listo para pruebas eléctricas.                   |
+| T33 | Validación eléctrica      | Verificar consumo eléctrico del sistema.                                 |                   | T32                          | Consumo medido o estimado y comparado con la fuente.                |
+| T34 | Pruebas funcionales       | Probar manipulación de objetos livianos.                                 |                   | T22, T30, T32, T33           | El brazo agarra, mueve y suelta objetos livianos.                   |
+| T35 | Pruebas funcionales       | Probar repetibilidad de trayectorias.                                    |                   | T34                          | Misma trayectoria ejecutada varias veces con resultado consistente. |
+| T36 | Pruebas funcionales       | Probar precisión de movimiento.                                          |                   | T34, T35                     | Precisión evaluada contra criterio definido del proyecto.           |
+| T37 | Validación final          | Ejecutar prueba final: colocar anillo en dedo impreso en 3D.             |                   | T36                          | Prueba final realizada con resultado satisfactorio.                 |
+| T38 | Correcciones              | Corregir fallas detectadas en pruebas.                                   |                   | T34, T35, T36, T37           | Fallas críticas corregidas y pruebas repetidas.                     |
+| T39 | Fabricación final         | Migrar piezas finales a PETG si corresponde.                             |                   | T38                          | Piezas finales impresas o decisión documentada de mantener PLA.     |
+| T40 | Documentación             | Documentar instalación, uso y operación del sistema.                     |                   | T25, T26, T28, T38           | Manual o sección documental de instalación y uso completa.          |
+| T41 | Documentación             | Documentar resultados de pruebas y validación final.                     |                   | T33, T34, T35, T36, T37, T38 | Informe de pruebas y validación final documentado.                  |
+
