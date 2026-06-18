@@ -2,102 +2,108 @@
 
 ```mermaid
 gantt
-    title Plan del proyecto - Brazo robótico
+    title Plan de proyecto - Brazo robótico
     dateFormat  YYYY-MM-DD
     axisFormat  %d/%m/%Y
 
     section Diseño
-    T01 Definir arquitectura general del sistema              :t01, 2026-06-01, 2d
-    T02 Definir arquitectura ROS 2 del brazo robótico          :t02, after t01, 5d
-    T03 Definir modo líder y seguidor                          :t03, after t01 t02, 1d
-    T04 Seleccionar modelo 3D de brazo                         :t04, after t01, 1d
-    T05 Seleccionar componentes principales                    :t05, after t01 t02 t04, 2d
+    T01 Arquitectura general del sistema                     :t01, 2026-06-01, 2d
+    T02 Arquitectura ROS 2 del brazo                         :t02, after t01, 5d
+    T03 Modo lider y modo seguidor                           :t03, after t01 t02, 1d
+    T04 Seleccionar modelo 3D                                :t04, after t01, 1d
+    T05 Seleccionar componentes principales                  :t05, after t01 t02 t04, 2d
+    T06 Diseñar esquemático de PCB                           :t06, after t05, 7d
+    T07 Rutear PCB de interfaz                               :t07, after t06, 7d
 
     section Compras
-    T06 Comprar servomotores                                   :t06, after t05, 30d
-    T07 Comprar placa driver para servomotores                 :t07, after t05, 30d
-    T08 Comprar fuente de alimentación principal               :t08, after t05, 5d
-    T09 Comprar display LCD 20x4 y botonera                    :t09, after t05, 5d
-    T10 Comprar computadora embebida                           :t10, after t05, 30d
+    T08 Comprar componentes para PCB                         :t08, after t06 t07, 3d
+    T11 Comprar servomotores                                 :t11, after t05, 30d
+    T12 Comprar placa driver para servomotores               :t12, after t05, 30d
+    T13 Comprar fuente de alimentación principal             :t13, after t05, 5d
+    T14 Comprar display LCD 20x4 y botonera                  :t14, after t05, 5d
+    T15 Comprar computadora embebida                         :t15, after t05, 30d
+
+    section Fabricación PCB
+    T09 Fabricar y validar PCB de interfaz                   :t09, after t07 t08, 14d
+    T10 PCB de interfaz validada                             :milestone, t10, after t09, 0d
 
     section Entorno
-    T11 Aprender a utilizar impresora 3D                       :t11, 2026-06-01, 15d
-    T12 Preparar entorno de desarrollo ROS 2                   :t12, after t02 t10, 15d
-    T13 Preparar repositorio                                   :t13, after t12, 1d
+    T16 Aprender a utilizar impresora 3D                     :t16, 2026-06-01, 15d
+    T17 Preparar entorno de desarrollo ROS 2                 :t17, after t02 t15, 15d
+    T18 Preparar repositorio                                 :t18, after t17, 1d
 
     section Simulación
-    T14 Modelar brazo para simulación                          :t14, after t04 t12, 5d
-    T15 Configurar modelo del brazo en Gazebo                  :t15, after t14, 5d
-    T16 Validar movimiento básico en simulación                :milestone, t16, after t15, 0d
+    T19 Modelar brazo para simulación                        :t19, after t04 t17, 5d
+    T20 Configurar modelo del brazo en Gazebo                :t20, after t19, 5d
+    T21 Validar movimiento básico en simulación              :milestone, t21, after t20, 0d
 
     section Actuadores
-    T17 Implementar control individual de servomotores         :t17, after t06 t07 t12 t13, 5d
-    T18 Implementar lectura de posición de cada articulación   :t18, after t17, 5d
+    T22 Control individual de servomotores                   :t22, after t10 t11 t12 t17 t18, 5d
+    T23 Lectura de posición de cada articulación             :t23, after t22, 5d
 
     section Calibración
-    T19 Implementar calibración inicial del brazo              :t19, after t18, 20d
-    T20 Implementar posición Home                              :t20, after t19, 5d
+    T24 Calibración inicial del brazo                        :t24, after t23, 20d
+    T25 Posición Home                                        :t25, after t24, 5d
 
     section Manual
-    T21 Implementar movimiento manual del brazo                :t21, after t17 t18 t20, 5d
+    T26 Movimiento manual del brazo                          :t26, after t22 t23 t25, 5d
 
     section Trayectorias
-    T22 Implementar grabación de trayectorias                  :t22, after t18 t21, 15d
-    T23 Implementar almacenamiento persistente de trayectorias :t23, after t22, 2d
-    T24 Implementar selección de trayectorias guardadas        :t24, after t23, 2d
-    T25 Implementar reproducción de trayectoria seleccionada   :t25, after t23 t24, 5d
-    T26 Implementar eliminación de trayectorias                :t26, after t23 t24, 1d
+    T27 Grabación de trayectorias                            :t27, after t23 t26, 15d
+    T28 Almacenamiento persistente de trayectorias           :t28, after t27, 2d
+    T29 Selección de trayectorias guardadas                  :t29, after t28, 2d
+    T30 Reproducción de trayectoria seleccionada             :t30, after t28 t29, 5d
+    T31 Eliminación de trayectorias                          :t31, after t28 t29, 1d
 
     section Estados
-    T27 Implementar estados del sistema                        :t27, after t22 t25 t26, 5d
+    T32 Estados del sistema                                  :t32, after t27 t30 t31, 5d
 
     section UI
-    T28 Implementar interfaz con display LCD                   :t28, after t09 t27, 10d
-    T29 Implementar interfaz con botonera                      :t29, after t09 t27, 10d
+    T33 Interfaz con display LCD                             :t33, after t10 t14 t32, 10d
+    T34 Interfaz con botonera                                :t34, after t10 t14 t32, 10d
 
     section Seguridad
-    T30 Implementar parada de emergencia o detención segura    :t30, after t17 t25 t27 t29, 5d
+    T35 Parada de emergencia o detención segura              :t35, after t22 t30 t32 t34, 5d
 
     section Inicialización
-    T31 Configurar arranque automático del sistema             :t31, after t10 t12 t13 t27, 3d
+    T36 Arranque automático del sistema                      :t36, after t15 t17 t18 t32, 3d
 
-    section Fabricación
-    T32 Imprimir piezas del brazo en PLA para prototipo        :t32, after t04 t11, 7d
-    T33 Ensamblar estructura mecánica del brazo                :t33, after t32, 7d
+    section Fabricación mecánica
+    T37 Imprimir piezas del brazo en PLA                     :t37, after t04 t16, 7d
+    T38 Ensamblar estructura mecánica                        :t38, after t37, 7d
 
     section Integración
-    T34 Montar electrónica en gabinete                         :t34, after t06 t07 t08 t09 t10, 3d
-    T35 Cablear alimentación y electrónica del sistema         :t35, after t33 t34, 1d
+    T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15, 3d
+    T40 Cablear alimentación y electrónica                   :t40, after t10 t38 t39, 1d
 
     section Consumo
-    T36 Verificar consumo eléctrico del sistema                :t36, after t35, 1d
+    T41 Verificar consumo eléctrico                          :t41, after t40, 1d
 
     section Pruebas
-    T37 Probar manipulación de objetos livianos                :t37, after t25 t30 t33 t35 t36, 1d
-    T38 Probar repetibilidad de trayectorias                   :t38, after t37, 1d
-    T39 Probar precisión de movimiento                         :t39, after t37 t38, 1d
-    T40 Prueba de integración colocando anillo                 :t40, after t39, 1d
+    T42 Probar manipulación de objetos livianos              :t42, after t30 t35 t38 t40 t41, 1d
+    T43 Probar repetibilidad de trayectorias                 :t43, after t42, 1d
+    T44 Probar precisión de movimiento                       :t44, after t42 t43, 1d
+    T45 Prueba de integración colocando anillo               :t45, after t44, 1d
 
     section Correcciones
-    T41 Corregir fallas detectadas en pruebas                  :t41, after t37 t38 t39 t40, 7d
+    T46 Corregir fallas detectadas en pruebas                :t46, after t42 t43 t44 t45, 7d
 
     section Validación
-    T42 Validar manipulación de objetos livianos               :milestone, t42, after t37 t41, 0d
-    T43 Validar repetibilidad de trayectorias                  :milestone, t43, after t38 t41, 0d
-    T44 Validar precisión de movimiento                        :milestone, t44, after t39 t41, 0d
-    T45 Validar prueba de integración                          :milestone, t45, after t40 t41, 0d
+    T47 Validar manipulación de objetos livianos             :milestone, t47, after t42 t46, 0d
+    T48 Validar repetibilidad de trayectorias                :milestone, t48, after t43 t46, 0d
+    T49 Validar precisión de movimiento                      :milestone, t49, after t44 t46, 0d
+    T50 Validar prueba de integración                        :milestone, t50, after t45 t46, 0d
 
     section Fabricación final
-    T46 Migrar piezas finales a PETG si corresponde            :t46, after t11 t41, 14d
+    T51 Migrar piezas finales a PETG si corresponde          :t51, after t16 t46, 14d
 
     section Documentación
-    T47 Documentar instalación uso y operación del sistema     :t47, after t28 t29 t31 t41 t45, 10d
-    T48 Documentar resultados de pruebas y validación final    :t48, after t36 t37 t38 t39 t40 t41 t42 t43 t44 t45, 10d
+    T52 Documentar instalación uso y operación               :t52, after t33 t34 t36 t46 t50, 10d
+    T53 Documentar resultados de pruebas y validación        :t53, after t41 t42 t43 t44 t45 t46 t47 t48 t49 t50, 10d
 
     section Presentación
-    T49 Preparar presentación final y demo                     :t49, after t47 t48, 3d
+    T54 Preparar presentación final y demo                   :t54, after t52 t53, 3d
 
     section Entrega Final
-    T50 Entrega final del proyecto                             :milestone, t50, after t49, 0d
-
+    T55 Entrega final del proyecto                           :milestone, t55, after t54, 0d
 ```
