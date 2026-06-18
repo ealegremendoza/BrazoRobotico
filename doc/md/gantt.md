@@ -2,7 +2,7 @@
 
 ```mermaid
 gantt
-    title Plan de proyecto - Brazo robótico
+    title Brazo robótico - Diagrama de Gantt v1.0
     dateFormat  YYYY-MM-DD
     axisFormat  %d/%m
     tickInterval 1week
@@ -71,7 +71,7 @@ gantt
 
     section Fabricación mecánica
     T37 Imprimir piezas del brazo en PLA                     :t37, after t04 t16, 7d
-    T38 Ensamblar estructura mecánica                        :t38, after t37, 7d
+    T38 Ensamblar estructura mecánica                        :t38, after t11 t37, 7d
 
     section Integración
     T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15, 3d
