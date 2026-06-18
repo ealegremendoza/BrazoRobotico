@@ -1,6 +1,7 @@
 # Diagrama de Gantt
 
 ```mermaid
+%%{init: {"gantt": {"topAxis": true}} }%%
 gantt
     title Brazo robótico - Diagrama de Gantt v1.0
     dateFormat  YYYY-MM-DD
