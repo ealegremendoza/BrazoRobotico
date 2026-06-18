@@ -10,7 +10,7 @@ gantt
     section Diseño
     T01 Arquitectura general del sistema                     :done, t01, 2026-06-01, 2d
     T02 Arquitectura ROS 2 del brazo                         :t02, after t01, 5d
-    T03 Modo lider y modo seguidor                           :t03, after t01 t02, 1d
+    T03 Modo lider y modo seguidor                           :active, t03, after t01 t02, 1d
     T04 Seleccionar modelo 3D                                :done, t04, after t01, 1d
     T05 Seleccionar componentes principales                  :active, t05, after t01 t02 t04, 2d
     T06 Diseñar esquemático de PCB                           :t06, after t05, 7d
@@ -30,8 +30,8 @@ gantt
 
     section Entorno
     T16 Aprender a utilizar impresora 3D                     :done, t16, 2026-06-01, 15d
-    T17 Preparar entorno de desarrollo ROS 2                 :t17, after t02 t15, 15d
-    T18 Preparar repositorio                                 :done, t18, after t17, 1d
+    T17 Preparar entorno de desarrollo ROS 2                 :active, t17, after t02 t15, 15d
+    T18 Preparar repositorio                                 :active, t18, after t17, 1d
 
     section Simulación
     T19 Modelar brazo para simulación                        :t19, after t04 t17, 5d
