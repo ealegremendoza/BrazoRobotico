@@ -71,7 +71,7 @@ gantt
     T36 Arranque automático del sistema                      :t36, after t15 t17 t18 t32, 3d
 
     section Fabricación mecánica
-    T37 Imprimir piezas del brazo en PLA                     :active, t37, after t04 t16, 7d
+    T37 Imprimir piezas del brazo en PLA                     :t37, after t04 t11 t16, 7d
     T38 Ensamblar estructura mecánica                        :t38, after t11 t37, 7d
 
     section Integración
