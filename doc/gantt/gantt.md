@@ -34,6 +34,17 @@ gantt
     T17 Preparar entorno de desarrollo ROS 2                 :active, t17, after t02 t15, 15d
     T18 Preparar repositorio                                 :active, t18, after t17, 1d
 
+    section Fabricación mecánica
+    T37 Imprimir piezas del brazo en PLA                     :t37, after t04 t11 t16, 7d
+    T38 Ensamblar estructura mecánica                        :t38, after t11 t37, 7d
+
+    section Integración
+    T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15 t38, 3d
+    T40 Cablear alimentación y electrónica                   :t40, after t10 t38 t39, 1d
+
+    section Consumo
+    T41 Verificar consumo eléctrico                          :t41, after t40, 1d
+
     section Simulación
     T19 Modelar brazo para simulación                        :t19, after t04 t17, 5d
     T20 Configurar modelo del brazo en Gazebo                :t20, after t19, 5d
@@ -69,17 +80,6 @@ gantt
 
     section Inicialización
     T36 Arranque automático del sistema                      :t36, after t15 t17 t18 t32, 3d
-
-    section Fabricación mecánica
-    T37 Imprimir piezas del brazo en PLA                     :t37, after t04 t11 t16, 7d
-    T38 Ensamblar estructura mecánica                        :t38, after t11 t37, 7d
-
-    section Integración
-    T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15 t38, 3d
-    T40 Cablear alimentación y electrónica                   :t40, after t10 t38 t39, 1d
-
-    section Consumo
-    T41 Verificar consumo eléctrico                          :t41, after t40, 1d
 
     section Pruebas
     T42 Probar manipulación de objetos livianos              :t42, after t30 t35 t38 t40 t41, 1d
