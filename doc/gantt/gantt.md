@@ -3,7 +3,7 @@
 ```mermaid
 %%{init: {"gantt": {"topAxis": true}} }%%
 gantt
-    title Brazo robótico - Diagrama de Gantt v1.0
+    title Brazo robótico - Diagrama de Gantt v1.1
     dateFormat  YYYY-MM-DD
     axisFormat  %d/%m
     tickInterval 1week
