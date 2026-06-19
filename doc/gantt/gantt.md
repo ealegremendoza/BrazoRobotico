@@ -75,7 +75,7 @@ gantt
     T38 Ensamblar estructura mecánica                        :t38, after t11 t37, 7d
 
     section Integración
-    T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15, 3d
+    T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15 t38, 3d
     T40 Cablear alimentación y electrónica                   :t40, after t10 t38 t39, 1d
 
     section Consumo
