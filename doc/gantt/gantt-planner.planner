@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<project name="Brazo rob&#xF3;tico - Plan de tareas" company="" manager="" phase="" project-start="20260601T000000Z" mrproject-version="2" calendar="1">
+<project name="Brazo rob&#xF3;tico - Plan de tareas" company="" manager="" phase="" project-start="20260601T000000Z" mrproject-version="2" calendar="2">
   <properties/>
   <phases/>
   <calendars>
@@ -9,6 +9,15 @@
       <day-type id="2" name="Use base" description="Use day from base calendar"/>
     </day-types>
     <calendar id="1" name="Default">
+      <default-week mon="0" tue="0" wed="0" thu="0" fri="0" sat="1" sun="1"/>
+      <overridden-day-types>
+        <overridden-day-type id="0">
+          <interval start="0000" end="2359"/>
+        </overridden-day-type>
+      </overridden-day-types>
+      <days/>
+    </calendar>
+    <calendar id="2" name="Default">
       <default-week mon="0" tue="0" wed="0" thu="0" fri="0" sat="0" sun="0"/>
       <overridden-day-types>
         <overridden-day-type id="0">
@@ -18,11 +27,12 @@
       </overridden-day-types>
       <days/>
     </calendar>
-    <calendar id="2" name="Default">
+    <calendar id="3" name="Default">
       <default-week mon="0" tue="0" wed="0" thu="0" fri="0" sat="1" sun="1"/>
       <overridden-day-types>
         <overridden-day-type id="0">
-          <interval start="0000" end="2359"/>
+          <interval start="0800" end="1200"/>
+          <interval start="1300" end="1700"/>
         </overridden-day-type>
       </overridden-day-types>
       <days/>
@@ -117,133 +127,22 @@
         <predecessor id="1" predecessor-id="17" type="FS"/>
       </predecessors>
     </task>
-    <task id="19" name="T19 - Modelar brazo para simulaci&#xF3;n." note="Fase: Simulaci&#xF3;n. Criterio de cierre: Modelo del brazo disponible para ROS 2/Gazebo." work="0" duration="144000" start="20260724T170000Z" end="20260729T170000Z" work-start="20260725T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="4" type="FS"/>
-        <predecessor id="1" predecessor-id="17" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="20" name="T20 - Configurar modelo del brazo en Gazebo." note="Fase: Simulaci&#xF3;n. Criterio de cierre: Brazo cargado correctamente en Gazebo." work="0" duration="144000" start="20260729T170000Z" end="20260803T170000Z" work-start="20260730T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="19" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="21" name="T21 - Validar movimiento b&#xE1;sico en simulaci&#xF3;n." note="Fase: Simulaci&#xF3;n. Criterio de cierre: Movimiento b&#xE1;sico verificado en entorno simulado." work="0" duration="0" start="20260803T170000Z" end="20260803T170000Z" work-start="20260803T170000Z" percent-complete="0" priority="500" type="milestone" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="20" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="22" name="T22 - Implementar control individual de servomotores." note="Fase: Actuadores. Criterio de cierre: Cada servomotor puede recibir comandos individuales desde el sistema." work="0" duration="144000" start="20260725T170000Z" end="20260730T170000Z" work-start="20260726T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="10" type="FS"/>
-        <predecessor id="1" predecessor-id="11" type="FS"/>
-        <predecessor id="1" predecessor-id="12" type="FS"/>
-        <predecessor id="1" predecessor-id="17" type="FS"/>
-        <predecessor id="1" predecessor-id="18" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="23" name="T23 - Implementar lectura de posici&#xF3;n de cada articulaci&#xF3;n." note="Fase: Actuadores. Criterio de cierre: Posici&#xF3;n de cada articulaci&#xF3;n disponible para el sistema." work="0" duration="144000" start="20260730T170000Z" end="20260804T170000Z" work-start="20260731T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="22" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="24" name="T24 - Implementar calibraci&#xF3;n inicial del brazo." note="Fase: Calibraci&#xF3;n. Criterio de cierre: Procedimiento de calibraci&#xF3;n ejecutable." work="0" duration="576000" start="20260804T170000Z" end="20260824T170000Z" work-start="20260805T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="23" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="25" name="T25 - Implementar posici&#xF3;n Home." note="Fase: Calibraci&#xF3;n. Criterio de cierre: Posici&#xF3;n de referencia definida y alcanzable." work="0" duration="144000" start="20260824T170000Z" end="20260829T170000Z" work-start="20260825T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="24" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="26" name="T26 - Implementar movimiento manual del brazo." note="Fase: Manual. Criterio de cierre: El brazo puede moverse manualmente para ense&#xF1;anza." work="0" duration="144000" start="20260829T170000Z" end="20260903T170000Z" work-start="20260830T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="22" type="FS"/>
-        <predecessor id="1" predecessor-id="23" type="FS"/>
-        <predecessor id="1" predecessor-id="25" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="27" name="T27 - Implementar grabaci&#xF3;n de trayectorias." note="Fase: Trayectorias. Criterio de cierre: Trayectoria registrada con posiciones y tiempos." work="0" duration="432000" start="20260903T170000Z" end="20260918T170000Z" work-start="20260904T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="23" type="FS"/>
-        <predecessor id="1" predecessor-id="26" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="28" name="T28 - Implementar almacenamiento persistente de trayectorias." note="Fase: Trayectorias. Criterio de cierre: Trayectorias guardadas y recuperables tras reinicio." work="0" duration="57600" start="20260918T170000Z" end="20260920T170000Z" work-start="20260919T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="27" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="29" name="T29 - Implementar selecci&#xF3;n de trayectorias guardadas." note="Fase: Trayectorias. Criterio de cierre: Trayectoria seleccionable desde el sistema." work="0" duration="57600" start="20260920T170000Z" end="20260922T170000Z" work-start="20260921T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="28" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="30" name="T30 - Implementar reproducci&#xF3;n de trayectoria seleccionada." note="Fase: Trayectorias. Criterio de cierre: Trayectoria almacenada reproducida correctamente." work="0" duration="144000" start="20260922T170000Z" end="20260927T170000Z" work-start="20260923T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="28" type="FS"/>
-        <predecessor id="1" predecessor-id="29" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="31" name="T31 - Implementar eliminaci&#xF3;n de trayectorias." note="Fase: Trayectorias. Criterio de cierre: Trayectorias almacenadas pueden borrarse correctamente." work="0" duration="28800" start="20260922T170000Z" end="20260923T170000Z" work-start="20260923T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="28" type="FS"/>
-        <predecessor id="1" predecessor-id="29" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="32" name="T32 - Implementar estados del sistema: listo, grabando, reproduciendo y error." note="Fase: Estados. Criterio de cierre: Estados visibles y coherentes con la operaci&#xF3;n real." work="0" duration="144000" start="20260927T170000Z" end="20261002T170000Z" work-start="20260928T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="27" type="FS"/>
-        <predecessor id="1" predecessor-id="30" type="FS"/>
-        <predecessor id="1" predecessor-id="31" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="33" name="T33 - Implementar interfaz con display LCD." note="Fase: UI. Criterio de cierre: Display muestra estados, opciones y mensajes principales del sistema." work="0" duration="288000" start="20261002T170000Z" end="20261012T170000Z" work-start="20261003T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="10" type="FS"/>
-        <predecessor id="1" predecessor-id="14" type="FS"/>
-        <predecessor id="1" predecessor-id="32" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="34" name="T34 - Implementar interfaz con botonera." note="Fase: UI. Criterio de cierre: Botonera permite operar funciones principales: grabar, reproducir, seleccionar y borrar." work="0" duration="288000" start="20261002T170000Z" end="20261012T170000Z" work-start="20261003T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="10" type="FS"/>
-        <predecessor id="1" predecessor-id="14" type="FS"/>
-        <predecessor id="1" predecessor-id="32" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="35" name="T35 - Implementar parada de emergencia o detenci&#xF3;n segura." note="Fase: Seguridad. Criterio de cierre: Ejecuci&#xF3;n detenible ante una condici&#xF3;n anormal o acci&#xF3;n del usuario." work="0" duration="144000" start="20261012T170000Z" end="20261017T170000Z" work-start="20261013T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="22" type="FS"/>
-        <predecessor id="1" predecessor-id="30" type="FS"/>
-        <predecessor id="1" predecessor-id="32" type="FS"/>
-        <predecessor id="1" predecessor-id="34" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="36" name="T36 - Configurar arranque autom&#xE1;tico del sistema." note="Fase: Inicializaci&#xF3;n. Criterio de cierre: Servicios principales inician al encender el equipo." work="0" duration="86400" start="20261002T170000Z" end="20261005T170000Z" work-start="20261003T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
-      <predecessors>
-        <predecessor id="1" predecessor-id="15" type="FS"/>
-        <predecessor id="1" predecessor-id="17" type="FS"/>
-        <predecessor id="1" predecessor-id="18" type="FS"/>
-        <predecessor id="1" predecessor-id="32" type="FS"/>
-      </predecessors>
-    </task>
-    <task id="37" name="T37 - Imprimir piezas del brazo en PLA para prototipo." note="Fase: Fabricaci&#xF3;n. Criterio de cierre: Piezas impresas y listas para ensamblaje." work="0" duration="201600" start="20260709T170000Z" end="20260716T170000Z" work-start="20260710T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+    <task id="19" name="T37 - Imprimir piezas del brazo en PLA para prototipo." note="Fase: Fabricaci&#xF3;n. Criterio de cierre: Piezas impresas y listas para ensamblaje." work="0" duration="201600" start="20260709T170000Z" end="20260716T170000Z" work-start="20260710T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
         <predecessor id="1" predecessor-id="4" type="FS"/>
         <predecessor id="1" predecessor-id="11" type="FS"/>
         <predecessor id="1" predecessor-id="16" type="FS"/>
       </predecessors>
     </task>
-    <task id="38" name="T38 - Ensamblar estructura mec&#xE1;nica del brazo." note="Fase: Fabricaci&#xF3;n. Criterio de cierre: Estructura del brazo armada f&#xED;sicamente." work="0" duration="201600" start="20260716T170000Z" end="20260723T170000Z" work-start="20260717T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+    <task id="20" name="T38 - Ensamblar estructura mec&#xE1;nica del brazo." note="Fase: Fabricaci&#xF3;n. Criterio de cierre: Estructura del brazo armada f&#xED;sicamente." work="0" duration="201600" start="20260716T170000Z" end="20260723T170000Z" work-start="20260717T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
         <predecessor id="1" predecessor-id="11" type="FS"/>
-        <predecessor id="1" predecessor-id="37" type="FS"/>
+        <predecessor id="1" predecessor-id="19" type="FS"/>
       </predecessors>
     </task>
-    <task id="39" name="T39 - Montar electr&#xF3;nica en gabinete." note="Fase: Integraci&#xF3;n. Criterio de cierre: Electr&#xF3;nica montada y organizada en gabinete." work="0" duration="86400" start="20260710T170000Z" end="20260713T170000Z" work-start="20260711T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+    <task id="21" name="T39 - Montar electr&#xF3;nica en gabinete." note="Fase: Integraci&#xF3;n. Criterio de cierre: Electr&#xF3;nica montada y organizada en gabinete." work="0" duration="86400" start="20260723T170000Z" end="20260726T170000Z" work-start="20260724T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
+        <predecessor id="1" predecessor-id="20" type="FS"/>
         <predecessor id="1" predecessor-id="10" type="FS"/>
         <predecessor id="1" predecessor-id="11" type="FS"/>
         <predecessor id="1" predecessor-id="12" type="FS"/>
@@ -252,25 +151,137 @@
         <predecessor id="1" predecessor-id="15" type="FS"/>
       </predecessors>
     </task>
-    <task id="40" name="T40 - Cablear alimentaci&#xF3;n, servos, controlador, computadora embebida, display y botonera." note="Fase: Integraci&#xF3;n. Criterio de cierre: Sistema cableado y listo para pruebas el&#xE9;ctricas." work="0" duration="28800" start="20260723T170000Z" end="20260724T170000Z" work-start="20260724T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+    <task id="22" name="T40 - Cablear alimentaci&#xF3;n, servos, controlador, computadora embebida, display y botonera." note="Fase: Integraci&#xF3;n. Criterio de cierre: Sistema cableado y listo para pruebas el&#xE9;ctricas." work="0" duration="28800" start="20260726T170000Z" end="20260727T170000Z" work-start="20260727T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
         <predecessor id="1" predecessor-id="10" type="FS"/>
-        <predecessor id="1" predecessor-id="38" type="FS"/>
+        <predecessor id="1" predecessor-id="20" type="FS"/>
+        <predecessor id="1" predecessor-id="21" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="23" name="T41 - Verificar consumo el&#xE9;ctrico del sistema." note="Fase: Consumo. Criterio de cierre: Consumo medido o estimado y comparado con la capacidad de la fuente." work="0" duration="28800" start="20260727T170000Z" end="20260728T170000Z" work-start="20260728T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="22" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="24" name="T19 - Modelar brazo para simulaci&#xF3;n." note="Fase: Simulaci&#xF3;n. Criterio de cierre: Modelo del brazo disponible para ROS 2/Gazebo." work="0" duration="144000" start="20260724T170000Z" end="20260729T170000Z" work-start="20260725T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="4" type="FS"/>
+        <predecessor id="1" predecessor-id="17" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="25" name="T20 - Configurar modelo del brazo en Gazebo." note="Fase: Simulaci&#xF3;n. Criterio de cierre: Brazo cargado correctamente en Gazebo." work="0" duration="144000" start="20260729T170000Z" end="20260803T170000Z" work-start="20260730T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="24" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="26" name="T21 - Validar movimiento b&#xE1;sico en simulaci&#xF3;n." note="Fase: Simulaci&#xF3;n. Criterio de cierre: Movimiento b&#xE1;sico verificado en entorno simulado." work="0" duration="0" start="20260803T170000Z" end="20260803T170000Z" work-start="20260803T170000Z" percent-complete="0" priority="500" type="milestone" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="25" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="27" name="T22 - Implementar control individual de servomotores." note="Fase: Actuadores. Criterio de cierre: Cada servomotor puede recibir comandos individuales desde el sistema." work="0" duration="144000" start="20260725T170000Z" end="20260730T170000Z" work-start="20260726T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="10" type="FS"/>
+        <predecessor id="1" predecessor-id="11" type="FS"/>
+        <predecessor id="1" predecessor-id="12" type="FS"/>
+        <predecessor id="1" predecessor-id="17" type="FS"/>
+        <predecessor id="1" predecessor-id="18" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="28" name="T23 - Implementar lectura de posici&#xF3;n de cada articulaci&#xF3;n." note="Fase: Actuadores. Criterio de cierre: Posici&#xF3;n de cada articulaci&#xF3;n disponible para el sistema." work="0" duration="144000" start="20260730T170000Z" end="20260804T170000Z" work-start="20260731T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="27" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="29" name="T24 - Implementar calibraci&#xF3;n inicial del brazo." note="Fase: Calibraci&#xF3;n. Criterio de cierre: Procedimiento de calibraci&#xF3;n ejecutable." work="0" duration="576000" start="20260804T170000Z" end="20260824T170000Z" work-start="20260805T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="28" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="30" name="T25 - Implementar posici&#xF3;n Home." note="Fase: Calibraci&#xF3;n. Criterio de cierre: Posici&#xF3;n de referencia definida y alcanzable." work="0" duration="144000" start="20260824T170000Z" end="20260829T170000Z" work-start="20260825T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="29" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="31" name="T26 - Implementar movimiento manual del brazo." note="Fase: Manual. Criterio de cierre: El brazo puede moverse manualmente para ense&#xF1;anza." work="0" duration="144000" start="20260829T170000Z" end="20260903T170000Z" work-start="20260830T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="27" type="FS"/>
+        <predecessor id="1" predecessor-id="28" type="FS"/>
+        <predecessor id="1" predecessor-id="30" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="32" name="T27 - Implementar grabaci&#xF3;n de trayectorias." note="Fase: Trayectorias. Criterio de cierre: Trayectoria registrada con posiciones y tiempos." work="0" duration="432000" start="20260903T170000Z" end="20260918T170000Z" work-start="20260904T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="28" type="FS"/>
+        <predecessor id="1" predecessor-id="31" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="33" name="T28 - Implementar almacenamiento persistente de trayectorias." note="Fase: Trayectorias. Criterio de cierre: Trayectorias guardadas y recuperables tras reinicio." work="0" duration="57600" start="20260918T170000Z" end="20260920T170000Z" work-start="20260919T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="32" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="34" name="T29 - Implementar selecci&#xF3;n de trayectorias guardadas." note="Fase: Trayectorias. Criterio de cierre: Trayectoria seleccionable desde el sistema." work="0" duration="57600" start="20260920T170000Z" end="20260922T170000Z" work-start="20260921T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="33" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="35" name="T30 - Implementar reproducci&#xF3;n de trayectoria seleccionada." note="Fase: Trayectorias. Criterio de cierre: Trayectoria almacenada reproducida correctamente." work="0" duration="144000" start="20260922T170000Z" end="20260927T170000Z" work-start="20260923T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="33" type="FS"/>
+        <predecessor id="1" predecessor-id="34" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="36" name="T31 - Implementar eliminaci&#xF3;n de trayectorias." note="Fase: Trayectorias. Criterio de cierre: Trayectorias almacenadas pueden borrarse correctamente." work="0" duration="28800" start="20260922T170000Z" end="20260923T170000Z" work-start="20260923T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="33" type="FS"/>
+        <predecessor id="1" predecessor-id="34" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="37" name="T32 - Implementar estados del sistema: listo, grabando, reproduciendo y error." note="Fase: Estados. Criterio de cierre: Estados visibles y coherentes con la operaci&#xF3;n real." work="0" duration="144000" start="20260927T170000Z" end="20261002T170000Z" work-start="20260928T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="32" type="FS"/>
+        <predecessor id="1" predecessor-id="35" type="FS"/>
+        <predecessor id="1" predecessor-id="36" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="38" name="T33 - Implementar interfaz con display LCD." note="Fase: UI. Criterio de cierre: Display muestra estados, opciones y mensajes principales del sistema." work="0" duration="288000" start="20261002T170000Z" end="20261012T170000Z" work-start="20261003T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="10" type="FS"/>
+        <predecessor id="1" predecessor-id="14" type="FS"/>
+        <predecessor id="1" predecessor-id="37" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="39" name="T34 - Implementar interfaz con botonera." note="Fase: UI. Criterio de cierre: Botonera permite operar funciones principales: grabar, reproducir, seleccionar y borrar." work="0" duration="288000" start="20261002T170000Z" end="20261012T170000Z" work-start="20261003T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="10" type="FS"/>
+        <predecessor id="1" predecessor-id="14" type="FS"/>
+        <predecessor id="1" predecessor-id="37" type="FS"/>
+      </predecessors>
+    </task>
+    <task id="40" name="T35 - Implementar parada de emergencia o detenci&#xF3;n segura." note="Fase: Seguridad. Criterio de cierre: Ejecuci&#xF3;n detenible ante una condici&#xF3;n anormal o acci&#xF3;n del usuario." work="0" duration="144000" start="20261012T170000Z" end="20261017T170000Z" work-start="20261013T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+      <predecessors>
+        <predecessor id="1" predecessor-id="27" type="FS"/>
+        <predecessor id="1" predecessor-id="35" type="FS"/>
+        <predecessor id="1" predecessor-id="37" type="FS"/>
         <predecessor id="1" predecessor-id="39" type="FS"/>
       </predecessors>
     </task>
-    <task id="41" name="T41 - Verificar consumo el&#xE9;ctrico del sistema." note="Fase: Consumo. Criterio de cierre: Consumo medido o estimado y comparado con la capacidad de la fuente." work="0" duration="28800" start="20260724T170000Z" end="20260725T170000Z" work-start="20260725T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
+    <task id="41" name="T36 - Configurar arranque autom&#xE1;tico del sistema." note="Fase: Inicializaci&#xF3;n. Criterio de cierre: Servicios principales inician al encender el equipo." work="0" duration="86400" start="20261002T170000Z" end="20261005T170000Z" work-start="20261003T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
-        <predecessor id="1" predecessor-id="40" type="FS"/>
+        <predecessor id="1" predecessor-id="15" type="FS"/>
+        <predecessor id="1" predecessor-id="17" type="FS"/>
+        <predecessor id="1" predecessor-id="18" type="FS"/>
+        <predecessor id="1" predecessor-id="37" type="FS"/>
       </predecessors>
     </task>
     <task id="42" name="T42 - Probar manipulaci&#xF3;n de objetos livianos." note="Fase: Pruebas. Criterio de cierre: El brazo agarra, mueve y suelta objetos livianos." work="0" duration="28800" start="20261017T170000Z" end="20261018T170000Z" work-start="20261018T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
-        <predecessor id="1" predecessor-id="30" type="FS"/>
         <predecessor id="1" predecessor-id="35" type="FS"/>
-        <predecessor id="1" predecessor-id="38" type="FS"/>
         <predecessor id="1" predecessor-id="40" type="FS"/>
-        <predecessor id="1" predecessor-id="41" type="FS"/>
+        <predecessor id="1" predecessor-id="20" type="FS"/>
+        <predecessor id="1" predecessor-id="22" type="FS"/>
+        <predecessor id="1" predecessor-id="23" type="FS"/>
       </predecessors>
     </task>
     <task id="43" name="T43 - Probar repetibilidad de trayectorias." note="Fase: Pruebas. Criterio de cierre: Misma trayectoria ejecutada varias veces con resultado consistente." work="0" duration="28800" start="20261018T170000Z" end="20261019T170000Z" work-start="20261019T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
@@ -329,16 +340,16 @@
     </task>
     <task id="52" name="T52 - Documentar instalaci&#xF3;n, uso y operaci&#xF3;n del sistema." note="Fase: Documentaci&#xF3;n. Criterio de cierre: Manual o secci&#xF3;n documental de instalaci&#xF3;n y uso completa." work="0" duration="288000" start="20261028T170000Z" end="20261107T170000Z" work-start="20261029T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
-        <predecessor id="1" predecessor-id="33" type="FS"/>
-        <predecessor id="1" predecessor-id="34" type="FS"/>
-        <predecessor id="1" predecessor-id="36" type="FS"/>
+        <predecessor id="1" predecessor-id="38" type="FS"/>
+        <predecessor id="1" predecessor-id="39" type="FS"/>
+        <predecessor id="1" predecessor-id="41" type="FS"/>
         <predecessor id="1" predecessor-id="46" type="FS"/>
         <predecessor id="1" predecessor-id="50" type="FS"/>
       </predecessors>
     </task>
     <task id="53" name="T53 - Documentar resultados de pruebas y validaci&#xF3;n final." note="Fase: Documentaci&#xF3;n. Criterio de cierre: Informe de pruebas y validaci&#xF3;n final documentado." work="0" duration="288000" start="20261028T170000Z" end="20261107T170000Z" work-start="20261029T080000Z" percent-complete="0" priority="500" type="normal" scheduling="fixed-duration">
       <predecessors>
-        <predecessor id="1" predecessor-id="41" type="FS"/>
+        <predecessor id="1" predecessor-id="23" type="FS"/>
         <predecessor id="1" predecessor-id="42" type="FS"/>
         <predecessor id="1" predecessor-id="43" type="FS"/>
         <predecessor id="1" predecessor-id="44" type="FS"/>
