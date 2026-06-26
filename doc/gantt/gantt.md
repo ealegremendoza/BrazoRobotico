@@ -19,10 +19,11 @@ gantt
 
     section Compras
     T08 Comprar componentes para PCB                         :t08, after t06 t07, 3d
-    T11 Comprar servomotores                                 :active, t11, after t05, 30d
-    T12 Comprar placa driver para servomotores               :active, t12, after t05, 30d
+    T11 Comprar servomotores                                 :done, t11, after t05, 30d
+    T12 Comprar placa driver para servomotores               :done, t12, after t05, 30d
     T13 Comprar fuente de alimentación principal             :t13, after t05, 5d
-    T14 Comprar display LCD 20x4 y botonera                  :t14, after t05, 5d
+    T59 Testear movimiento de servomotores y driver          :t59, after t11 t12 t13, 5d
+    T14 Comprar display LCD 20x4 y botonera                  :active, t14, after t05, 5d
     T15 Comprar computadora embebida                         :t15, after t05, 30d
 
     section Fabricación PCB
@@ -35,8 +36,11 @@ gantt
     T18 Preparar repositorio                                 :active, t18, after t17, 1d
 
     section Fabricación mecánica
-    T37 Imprimir piezas del brazo en PLA                     :t37, after t04 t11 t16, 7d
-    T38 Ensamblar estructura mecánica                        :t38, after t11 t37, 7d
+    T37 Imprimir piezas del brazo en PLA                     :active, t37, after t04 t11 t16, 7d
+    T38 Ensamblar estructura mecánica del brazo              :t38, after t11 t37, 7d
+    T56 Probar rigidez mecánica del brazo                    :t56, after t38, 2d
+    T57 Probar capacidad de carga del brazo                  :t57, after t38 t56, 2d
+    T58 Validación mecánica del brazo                        :milestone, t58, after t56 t57, 0d
 
     section Integración
     T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15 t38, 3d
