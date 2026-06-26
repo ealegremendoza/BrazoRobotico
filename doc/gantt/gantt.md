@@ -13,8 +13,8 @@ gantt
     T02 Arquitectura ROS 2 del brazo                         :t02, after t01, 5d
     T03 Modo lider y modo seguidor                           :active, t03, after t01 t02, 1d
     T04 Seleccionar modelo 3D                                :done, t04, after t01, 1d
-    T05 Seleccionar componentes principales                  :active, t05, after t01 t02 t04, 2d
-    T06 Diseñar esquemático de PCB                           :t06, after t05, 7d
+    T05 Seleccionar componentes principales                  :done, t05, after t01 t02 t04, 2d
+    T06 Diseñar esquemático de PCB                           :t06, 2026-06-28, 7d
     T07 Rutear PCB de interfaz                               :t07, after t06, 7d
 
     section Compras
