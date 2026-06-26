@@ -38,6 +38,8 @@ gantt
     section Fabricación mecánica
     T37 Imprimir piezas del brazo en PLA                     :active, t37, after t04 t11 t16, 7d
     T38 Ensamblar estructura mecánica del brazo              :t38, after t11 t37, 7d
+
+    section Pruebas mecánicas del brazo
     T56 Probar rigidez mecánica del brazo                    :t56, after t38, 2d
     T57 Probar capacidad de carga del brazo                  :t57, after t38 t56, 2d
     T58 Validación mecánica del brazo                        :milestone, t58, after t56 t57, 0d
@@ -62,7 +64,7 @@ gantt
     T24 Calibración inicial del brazo                        :t24, after t23, 20d
     T25 Posición Home                                        :t25, after t24, 5d
 
-    section Manual
+    section Enseñanza
     T26 Movimiento manual del brazo                          :t26, after t22 t23 t25, 5d
 
     section Trayectorias
@@ -85,7 +87,7 @@ gantt
     section Inicialización
     T36 Arranque automático del sistema                      :t36, after t15 t17 t18 t32, 3d
 
-    section Pruebas
+    section Pruebas de Integración
     T42 Probar manipulación de objetos livianos              :t42, after t30 t35 t38 t40 t41, 1d
     T43 Probar repetibilidad de trayectorias                 :t43, after t42, 1d
     T44 Probar precisión de movimiento                       :t44, after t42 t43, 1d
@@ -94,7 +96,7 @@ gantt
     section Correcciones
     T46 Corregir fallas detectadas en pruebas                :t46, after t42 t43 t44 t45, 7d
 
-    section Validación
+    section Validación Gral.
     T47 Validar manipulación de objetos livianos             :milestone, t47, after t42 t46, 0d
     T48 Validar repetibilidad de trayectorias                :milestone, t48, after t43 t46, 0d
     T49 Validar precisión de movimiento                      :milestone, t49, after t44 t46, 0d
