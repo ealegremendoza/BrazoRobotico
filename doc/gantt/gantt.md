@@ -13,8 +13,8 @@ gantt
     T02 Arquitectura ROS 2 del brazo                         :t02, after t01, 5d
     T03 Modo lider y modo seguidor                           :active, t03, after t01 t02, 1d
     T04 Seleccionar modelo 3D                                :done, t04, after t01, 1d
-    T05 Seleccionar componentes principales                  :done, t05, after t01 t02 t04, 2d
-    T06 Diseñar esquemático de PCB                           :t06, 2026-06-28, 7d
+    T05 Seleccionar componentes principales                  :done, t05, after t01 t04, 2d
+    T06 Diseñar esquemático de PCB                           :t06, after t05, 7d
     T07 Rutear PCB de interfaz                               :t07, after t06, 7d
 
     section Compras
@@ -45,8 +45,9 @@ gantt
     T58 Validación mecánica del brazo                        :milestone, t58, after t56 t57, 0d
 
     section Integración
-    T39 Montar electrónica en gabinete                       :t39, after t10 t11 t12 t13 t14 t15 t38, 3d
-    T40 Cablear alimentación y electrónica                   :t40, after t10 t38 t39, 1d
+    T60 Diseñar y fabricar gabinete                          :t60, after t10 t11 t12 t13 t14 t15 t38, 7d
+    T39 Montar electrónica en gabinete                       :t39, after t60, 3d
+    T40 Cablear alimentación y electrónica                   :t40, after t10 t39 , 1d
 
     section Consumo
     T41 Verificar consumo eléctrico                          :t41, after t40, 1d
@@ -57,7 +58,7 @@ gantt
     T21 Validar movimiento básico en simulación              :milestone, t21, after t20, 0d
 
     section Actuadores
-    T22 Control individual de servomotores                   :t22, after t10 t11 t12 t17 t18, 5d
+    T22 Control individual de servomotores                   :t22, after t10 t11 t12 t13 t17 t18, 5d
     T23 Lectura de posición de cada articulación             :t23, after t22, 5d
 
     section Calibración
@@ -106,7 +107,7 @@ gantt
     T51 Migrar piezas finales a PETG si corresponde          :t51, after t16 t46, 14d
 
     section Documentación
-    T52 Documentar instalación uso y operación               :t52, after t33 t34 t36 t46 t50, 10d
+    T52 Documentar instalación uso y operación               :t52, after t47 t48 t49 t50, 10d
     T53 Documentar resultados de pruebas y validación        :t53, after t41 t42 t43 t44 t45 t46 t47 t48 t49 t50, 10d
 
     section Presentación
