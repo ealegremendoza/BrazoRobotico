@@ -12,3 +12,8 @@
 ## Referencias de otros proyectos similares
 Los siguientes links deben tomarse como referencias para el proyecto.
 Ver referencias.md
+
+## ESP32
+- [ESP32 WROOM 32](https://www.espboards.dev/esp32/esp32-wroom/)
+- [Getting Started with the ESP32 Development Board](https://randomnerdtutorials.com/getting-started-with-esp32/)
+- [ESP32 Dev board Pinout, Specifications, datasheet and Schematic](https://www.etechnophiles.com/esp32-dev-board-pinout-specifications-datasheet-and-schematic/#power-pins)
