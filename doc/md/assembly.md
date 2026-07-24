@@ -1,0 +1,59 @@
+# Fabricación de brazo robótico RO-101
+
+## 1. Impresión de piezas en PLA
+|ID|Pieza|Material|Tiempo de impresión|Cantidad de filamento utilizado|Notas|
+|--|-----|-------------------|-------------------------------|-----|
+|1|Base|PLA|5h 8m|74g|Imprimí varias 4 veces este modelo hasta dar con el tamaño que permitía insertar correctamente los servomotores. |
+|2|Moving Jaw|PLA|1h 33m|26g||
+|3|Under arm|PLA|2h 40m|43g||
+|4|Motor holder|PLA|1h 47m|25g||
+|5|Wrist Roll Pitch|PLA|2h 43m|31g||
+|6|Rotation Pitch|PLA|1h 44m|30g||
+|7|Wrist Roll|PLA|2h 13m|27g||
+|8|Upper arm|PLA|2h 38m|50g||
+|9|Wrist Roll Follower|PLA|2h 15m|32g||
+|10|Base motor holder|PLA|1h 6m|18g||
+
+> Todos los modelos descritos arriba fueron impresos con un tamaño de 102% respecto de su tamaño original para que entraran los actuadores que tengo.
+
+- Los modelos fueron descargados de aquí: [https://github.com/TheRobotStudio/SO-ARM100](https://github.com/TheRobotStudio/SO-ARM100)
+- Los modelos redimensionados se encuentran en [BrazoRobotico/3d/g_codes/scale_102](BrazoRobotico/3d/g_codes/scale_102)
+- La impresora utilizada fue: [Creality Ender-3 V3 SE](https://www.creality.com/products/creality-ender-3-v3-se)
+
+El tiempo total de impresión fue de: **23h 47m**
+
+El total de filamento utilizado fue de: **356g**
+
+
+## 2. Configuración de motores
+1. [How to Use the ST3215 Servo Motor](https://www.youtube.com/watch?v=T5T7qCg4pGE)
+2. [https://www.waveshare.com/wiki/ST3215_Servo](https://www.waveshare.com/wiki/ST3215_Servo)
+3. [https://www.waveshare.com/wiki/Bus_Servo_Adapter_(A)](https://www.waveshare.com/wiki/Bus_Servo_Adapter_(A))
+
+### Instalar dependencias de python
+Según el video 1 del apartado anterior, una vez descargado [STServo_Python.zip](https://files.waveshare.com/wiki/Bus_Servo_Adapter_A/STServo_Python.zip), hay que:
+
+1. Crear un entorno virtual. Tengo que estar parado en */BrazoRobotico/STServo_Python
+```bash
+python3 -m venv stservo-env
+```
+
+2. Activarlo.
+```bash
+source stservo-env/bin/activate
+```
+
+3. Instalar requerimientos
+```bash
+pip install -r requirements.txt
+```
+4. Escribir servos. Usar para esto los scripts de la carpeta sms_sts.
+
+### Instalación de LEROBOT
+Para configurar los motores recomiendan realizar la instalación del entorno de desarrollo del proyecto LeRobot: [Intallation](https://huggingface.co/docs/lerobot/installation)
+
+## 3. Ensamblado
+- [LeRobot SO-ARM101 Robotic Arm - Assembly and Setup Guide\](https://www.youtube.com/watch?v=70GuJf2jbYk)
+
+## 4. Calibración
+- [SO101 Arms: Calibration and Motor Configuration](https://www.youtube.com/watch?v=Nhfda8h7e2I)

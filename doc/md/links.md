@@ -17,3 +17,11 @@ Ver referencias.md
 - [ESP32 WROOM 32](https://www.espboards.dev/esp32/esp32-wroom/)
 - [Getting Started with the ESP32 Development Board](https://randomnerdtutorials.com/getting-started-with-esp32/)
 - [ESP32 Dev board Pinout, Specifications, datasheet and Schematic](https://www.etechnophiles.com/esp32-dev-board-pinout-specifications-datasheet-and-schematic/#power-pins)
+
+
+## Robotica
+- [Robot Learning: A Tutorial](https://huggingface.co/spaces/lerobot/robot-learning-tutorial)
+- [lerobot github repository](https://github.com/huggingface/lerobot)
+- [lerobot assembly tutorial](https://huggingface.co/docs/lerobot/so101)
+- [LeRobot SO-ARM101 Robotic Arm - Assembly and Setup Guide\](https://www.youtube.com/watch?v=70GuJf2jbYk)
+- [SO101 Arms: Calibration and Motor Configuration](https://www.youtube.com/watch?v=Nhfda8h7e2I)
