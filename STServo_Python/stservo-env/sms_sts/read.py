@@ -33,7 +33,7 @@ from scservo_sdk import *                      # Uses SC Servo SDK library
 # Default setting
 SCS_ID                      = 1                 # SC Servo ID : 1
 BAUDRATE                    = 1000000           # SC Servo default baudrate : 1000000
-DEVICENAME                  = '/dev/ttyUSB0'    # Check which port is being used on your controller
+DEVICENAME                  = '/dev/ttyACM0'    # Check which port is being used on your controller
                                                 # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
 # Initialize PortHandler instance

@@ -78,8 +78,15 @@ pip install -r requirements.txt
     ```
     En el siguiente video se puede ver el resultado:
     [mover-servo](../videos/mover-servo.mp4)
-### Instalación de LEROBOT
-Para configurar los motores recomiendan realizar la instalación del entorno de desarrollo del proyecto LeRobot: [Intallation](https://huggingface.co/docs/lerobot/installation)
+### Configurar ID de motores
+Los servos vienen con un ID predefinido con valor 1.
+Tengo que cambiar el ID de cada uno para que tras ensamblar el brazo, pueda programar cada uno por separado.
+
+Para esto voy a usar el script change_id.py. En el mismo se tiene que configurar el puerto y el nuevo id.
+
+Listo. Configurados los 6 servomotores con ID: 1, 2, 3, 4, 5 y 6.
+
+Se valida su funcionamiento en modo bus en este video: [mover servos](../videos/mover-servos.mp4)
 
 ## 3. Ensamblado
 - [LeRobot SO-ARM101 Robotic Arm - Assembly and Setup Guide\](https://www.youtube.com/watch?v=70GuJf2jbYk)
