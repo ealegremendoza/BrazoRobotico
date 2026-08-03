@@ -1,3 +1,3 @@
-.vscode/
-*browse.vc.db
-*browse.vc.db-shm
+.vscode/browse.vc.db
+.vscode/browse.vc.db-shm
+STServo_Python/stservo-env/scservo_sdk/__pycache__/*
