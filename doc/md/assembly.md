@@ -48,7 +48,36 @@ source stservo-env/bin/activate
 pip install -r requirements.txt
 ```
 4. Escribir servos. Usar para esto los scripts de la carpeta sms_sts.
-
+5. Para empezar usare el sms_sts/read_write.py. Dentro de este archivo hay que cargar el puerto USB que se va a utilizar.  Ojo! Lo conectaré via USB C, NO mediante UART. Esto es importante porque cambia la posición del jumper en la placa driver de los servos. Para USB hay que usar el jumper en la posición B.
+6. Primero hay que conectar la placa driver al motor. Luego, hay que conectar la fuente de 12V a la placa driver y por ultimo el cable USB.
+   1. Lo que hice primero fue conectar la fuente de 12 V a la red electrica y verifique con el multimetro la salida: 12.3V.
+   2. Luego, conecte la fuente a la placa sin el motor y validé que en los pines de alimentación tenia 12.3V.
+   3. Luego, desconecte la alimentacion, conecte el motor y volvi a conectar la alimentacion. En el motor se encendio un led rojo indicando que está energizado.
+   4. Luego, conecte el cable USB C a la placa.
+   5. Por último conecte el cable USB a la PC.
+7. Para identificar el puerto USB
+   1. En Windows: [System.IO.Ports.SerialPort]::GetPortNames()
+   2. En Linux: ls /dev/ttyUSB*
+      1. Cuando ejecuté esto en mi computadora no encontre nada. Tuve que ejecutar ls /dev/tty* y recién ahí encontré puertos. Comparé lo que arrojaba dicho comando con y sin la placa conectada y encontré que con la placa conectada aparece /dev/ttyACM0 
+8. Configurar puerto en archivo read_write.py
+9. Ejecutar python3 read_write.py. A continuación comparto los logs.
+    ```bash
+    ❯ python3 read_write.py
+    Succeeded to open the port
+    Succeeded to change the baudrate
+    Press any key to continue! (or press ESC to quit!)
+    [ID:001] GoalPos:0 PresPos:1074 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1074 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1073 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1072 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1072 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1071 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1069 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1068 PresSpd:-1150
+    [ID:001] GoalPos:0 PresPos:1068 PresSpd:-1150
+    ```
+    En el siguiente video se puede ver el resultado:
+    [mover-servo](../videos/mover-servo.mp4)
 ### Instalación de LEROBOT
 Para configurar los motores recomiendan realizar la instalación del entorno de desarrollo del proyecto LeRobot: [Intallation](https://huggingface.co/docs/lerobot/installation)
 
