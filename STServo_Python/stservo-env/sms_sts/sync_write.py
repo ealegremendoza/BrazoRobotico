@@ -31,11 +31,11 @@ from scservo_sdk import *                      # Uses SC Servo SDK library
 
 # Default setting
 BAUDRATE                    = 1000000           # SC Servo default baudrate : 1000000
-DEVICENAME                  = '/dev/ttyUSB0'    # Check which port is being used on your controller
+DEVICENAME                  = '/dev/ttyACM0'    # Check which port is being used on your controller
                                                 # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
 SCS_MINIMUM_POSITION_VALUE  = 0                 # SC Servo will rotate between this value
-SCS_MAXIMUM_POSITION_VALUE  = 4095              
+SCS_MAXIMUM_POSITION_VALUE  = 700              
 SCS_MOVING_SPEED            = 2400              # SC Servo moving speed
 SCS_MOVING_ACC              = 50                # SC Servo moving acc
 
@@ -76,7 +76,7 @@ while 1:
     if getch() == chr(0x1b):
         break
 
-    for scs_id in range(1, 11):
+    for scs_id in range(1, 3):
         # Add SC Servo#1~10 goal position\moving speed\moving accc value to the Syncwrite parameter storage
         scs_addparam_result = packetHandler.SyncWritePosEx(scs_id, scs_goal_position[index], SCS_MOVING_SPEED, SCS_MOVING_ACC)
         if scs_addparam_result != True:

@@ -36,7 +36,7 @@ BAUDRATE                    = 1000000           # SC Servo default baudrate : 10
 DEVICENAME                  = '/dev/ttyACM0'    # Check which port is being used on your controller
                                                 # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 SCS_MINIMUM_POSITION_VALUE  = 0           # SC Servo will rotate between this value
-SCS_MAXIMUM_POSITION_VALUE  = 4095
+SCS_MAXIMUM_POSITION_VALUE  = 700
 SCS_MOVING_SPEED            = 2400        # SC Servo moving speed
 SCS_MOVING_ACC              = 50          # SC Servo moving acc
 
