@@ -1,3 +1,9 @@
-.vscode/browse.vc.db
-.vscode/browse.vc.db-shm
-STServo_Python/stservo-env/scservo_sdk/__pycache__/*
+# Local editor state
+.vscode/browse.vc.db*
+
+# Python
+**/__pycache__/
+STServo_Python/stservo-env/
+
+# Local tooling state
+.atl/
