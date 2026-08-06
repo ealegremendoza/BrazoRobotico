@@ -76,7 +76,7 @@ while 1:
     if getch() == chr(0x1b):
         break
 
-    for scs_id in range(1, 3):
+    for scs_id in range(4, 7):
         # Add SC Servo#1~10 goal position\moving speed\moving accc value to the Syncwrite parameter storage
         scs_addparam_result = packetHandler.SyncWritePosEx(scs_id, scs_goal_position[index], SCS_MOVING_SPEED, SCS_MOVING_ACC)
         if scs_addparam_result != True:
