@@ -90,6 +90,24 @@ Se valida su funcionamiento en modo bus en este video: [mover servos](../videos/
 
 ## 3. Ensamblado
 - [LeRobot SO-ARM101 Robotic Arm - Assembly and Setup Guide\](https://www.youtube.com/watch?v=70GuJf2jbYk)
+- Ensamblado de brazo robótico seguidor completo. El brazo robótico lider no entra en este proyecto.
 
 ## 4. Calibración
 - [SO101 Arms: Calibration and Motor Configuration](https://www.youtube.com/watch?v=Nhfda8h7e2I)
+- [Repositorio de LeRobot](https://github.com/huggingface/lerobot/tree/main)
+    - En dicho repositorio se encuentra el script que se usa para calibrar el brazo src/lerobot/scripts/lerobot_calibrate.py
+    - A ese escript hay que pasarle:
+    ```bash
+    lerobot-calibrate \
+    --robot.type=so101_follower \
+    --robot.port=/dev/tty.usbmodem58760431551 \ # <- The port of your robot
+    --robot.id=my_awesome_follower_arm # <- Give the robot a unique name
+    ```
+    - En mi caso sería:
+     ```bash
+    lerobot-calibrate \
+    --robot.type=so101_follower \
+    --robot.port=/dev/ttyACM0 \ 
+    --robot.id=blue_follower_arm 
+    ```
+- Luego, tras ejecutar ese escript hay que hacer lo que hacen en este video: [Ejemplo calibracion](https://huggingface.co/docs/lerobot/so101?calibrate_leader=Command#calibration-video)
