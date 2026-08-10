@@ -26,8 +26,11 @@ read-back position as counts + %, velocity and link status. Sliders are
     trajectories.json. Saved trajectories appear in a dropdown; Play/Pause
     runs the selected one point by point at its recorded cadence (Pause holds
     the arm at the current point, Play resumes, Detener stops and returns to
-    the trajectory's first pose), and Delete removes it. If calibration.json
-    is missing, the full raw 0-4095 range is used.
+    the trajectory's first pose), and Delete removes it. Playback can repeat:
+    the Repeticiones field sets the number of passes, the Indefinido toggle
+    loops forever, and the Pausa entre reps field inserts a delay in seconds
+    between passes. If calibration.json is missing, the full raw 0-4095 range
+    is used.
 
 Architecture: a background thread (ServoBusWorker) owns the serial port and
 the SDK. The GUI thread never touches the bus: slider movements are queued
@@ -458,7 +461,12 @@ class ServoControlApp:
         self._rec_start_mono = 0.0
         self._rec_last_mono = 0.0
         self._playing = False
+        self._play_paused = False
         self._playback_job = None
+        self._repeat_job = None
+        self._play_reps_total = 1
+        self._play_reps_done = 0
+        self._play_rep_delay_s = 0.0
         self._play_index = 0
         self._play_samples = []
 
@@ -588,6 +596,31 @@ class ServoControlApp:
             traj, text="Delete", command=self._delete_trajectory, state="disabled"
         )
         self.delete_btn.grid(row=0, column=5, padx=4)
+
+        # Repeat controls: pass count, infinite toggle, inter-pass delay.
+        ttk.Label(traj, text="Repeticiones:").grid(row=1, column=0, sticky="w")
+        self._reps_var = tk.IntVar(value=1)
+        self.reps_spin = ttk.Spinbox(
+            traj, from_=1, to=999, textvariable=self._reps_var, width=5
+        )
+        self.reps_spin.grid(row=1, column=1, padx=4, sticky="w")
+        self._infinite_var = tk.BooleanVar(value=False)
+        self.infinite_chk = ttk.Checkbutton(
+            traj,
+            text="Indefinido",
+            variable=self._infinite_var,
+            command=self._on_infinite_toggle,
+        )
+        self.infinite_chk.grid(row=1, column=2, sticky="w", padx=6)
+        ttk.Label(traj, text="Pausa entre reps (s):").grid(
+            row=1, column=3, sticky="e"
+        )
+        self._delay_var = tk.DoubleVar(value=0.0)
+        self.delay_spin = ttk.Spinbox(
+            traj, from_=0.0, to=60.0, increment=0.5, textvariable=self._delay_var,
+            width=5,
+        )
+        self.delay_spin.grid(row=1, column=4, padx=4, sticky="w")
 
         self._refresh_trajectory_list()
 
@@ -995,6 +1028,18 @@ class ServoControlApp:
         else:
             self._pause_playback()
 
+    def _on_infinite_toggle(self):
+        """Disable the pass-count spinbox while looping indefinitely."""
+        self.reps_spin.state(
+            ["disabled"] if self._infinite_var.get() else ["!disabled"]
+        )
+
+    def _on_infinite_toggle(self):
+        """Disable the pass-count spinbox while looping indefinitely."""
+        self.reps_spin.state(
+            ["disabled"] if self._infinite_var.get() else ["!disabled"]
+        )
+
     def _start_playback(self):
         """Run the selected trajectory, commanding each recorded sample."""
         if not self._connected or self._worker is None or self._recording:
@@ -1016,8 +1061,30 @@ class ServoControlApp:
         self._play_samples = samples
         self._play_index = 0
         self._playback_job = None
+        self._repeat_job = None
+        # Read the repeat configuration from the UI.
+        if self._infinite_var.get():
+            self._play_reps_total = None
+        else:
+            try:
+                self._play_reps_total = max(1, int(self._reps_var.get()))
+            except (TypeError, ValueError):
+                self._play_reps_total = 1
+        self._play_reps_done = 0
+        try:
+            self._play_rep_delay_s = max(0.0, float(self._delay_var.get()))
+        except (TypeError, ValueError):
+            self._play_rep_delay_s = 0.0
         self._update_trajectory_ui()
-        self._flash_status("Playing: %s (%d points)" % (name, len(samples)), True)
+        if self._play_reps_total is None:
+            label = "%s (%d points) - infinite loop" % (name, len(samples))
+        elif self._play_reps_total > 1:
+            label = "%s (%d points) x%d" % (
+                name, len(samples), self._play_reps_total
+            )
+        else:
+            label = "%s (%d points)" % (name, len(samples))
+        self._flash_status("Playing: %s" % label, True)
         self._schedule_playback()
 
     def _pause_playback(self):
@@ -1028,6 +1095,9 @@ class ServoControlApp:
         if self._playback_job is not None:
             self._root.after_cancel(self._playback_job)
             self._playback_job = None
+        if self._repeat_job is not None:
+            self._root.after_cancel(self._repeat_job)
+            self._repeat_job = None
         self._update_trajectory_ui()
         self._flash_status("Playback paused", True)
 
@@ -1040,6 +1110,9 @@ class ServoControlApp:
         self._flash_status("Playback resumed", True)
         if self._play_index < len(self._play_samples):
             self._playback_job = self._root.after(10, self._schedule_playback)
+        else:
+            # Paused during the inter-repetition delay: start the next pass.
+            self._restart_repetition()
 
     def _schedule_playback(self):
         if not self._playing or self._play_paused:
@@ -1064,13 +1137,49 @@ class ServoControlApp:
             )
             self._playback_job = self._root.after(delay_ms, self._schedule_playback)
         else:
-            self._stop_playback(True)
+            self._finish_repetition()
+
+    def _finish_repetition(self):
+        """One full pass finished: run the next repetition or stop."""
+        if not self._playing or self._play_paused:
+            return
+        if self._play_reps_total is not None:
+            self._play_reps_done += 1
+            if self._play_reps_done >= self._play_reps_total:
+                self._stop_playback(True)
+                return
+        if self._play_rep_delay_s > 0:
+            if self._play_reps_total is None:
+                msg = "Looping - next pass in %.1fs" % self._play_rep_delay_s
+            else:
+                msg = "Pass %d/%d - next in %.1fs" % (
+                    self._play_reps_done + 1,
+                    self._play_reps_total,
+                    self._play_rep_delay_s,
+                )
+            self._flash_status(msg, True)
+            self._repeat_job = self._root.after(
+                int(self._play_rep_delay_s * 1000), self._restart_repetition
+            )
+        else:
+            self._restart_repetition()
+
+    def _restart_repetition(self):
+        """Begin the next pass: rewind to the first sample and keep going."""
+        if not self._playing or self._play_paused:
+            return
+        self._repeat_job = None
+        self._play_index = 0
+        self._schedule_playback()
 
     def _cancel_playback(self):
         """Stop running/paused playback silently, clearing scheduled jobs."""
         if self._playback_job is not None:
             self._root.after_cancel(self._playback_job)
             self._playback_job = None
+        if self._repeat_job is not None:
+            self._root.after_cancel(self._repeat_job)
+            self._repeat_job = None
         self._play_samples = []
         self._play_paused = False
         self._playing = False
