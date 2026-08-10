@@ -77,6 +77,9 @@ SERVO_NAMES = {
     5: "wrist_roll",
     6: "gripper",
 }
+# Kept under torque during trajectory teaching so it can be driven by slider
+# while the rest of the arm is free for hand-movement.
+GRIPPER_SERVO_ID = 6
 POSITION_MIN = 0
 POSITION_MAX = 4095
 CALIBRATION_PATH = os.path.join(
@@ -322,10 +325,10 @@ class ServoBusWorker(threading.Thread):
         if not self._shutdown.is_set():
             self._cmd_q.put((servo_id, position))
 
-    def set_torque(self, enabled):
-        """Enable/disable torque on every servo (Free mode)."""
+    def set_torque(self, enabled, servo_ids=None):
+        """Enable/disable torque on every servo, or only the given ids."""
         if not self._shutdown.is_set():
-            self._torque_q.put(bool(enabled))
+            self._torque_q.put((bool(enabled), tuple(servo_ids) if servo_ids else None))
 
     def stop(self):
         self._shutdown.set()
@@ -369,8 +372,8 @@ class ServoBusWorker(threading.Thread):
                 # Drain torque commands (Free mode) before position writes.
                 try:
                     while True:
-                        enabled = self._torque_q.get_nowait()
-                        self._apply_torque(ph, enabled)
+                        enabled, servo_ids = self._torque_q.get_nowait()
+                        self._apply_torque(ph, enabled, servo_ids)
                 except queue.Empty:
                     pass
 
@@ -431,9 +434,9 @@ class ServoBusWorker(threading.Thread):
                 feedback.append((servo_id, 0, 0, False))
         self._feedback_q.put(("feedback", feedback))
 
-    def _apply_torque(self, ph, enabled):
+    def _apply_torque(self, ph, enabled, servo_ids=None):
         value = 1 if enabled else 0
-        for servo_id in SERVO_IDS:
+        for servo_id in (servo_ids or SERVO_IDS):
             try:
                 ph.write1ByteTxRx(servo_id, SMS_STS_TORQUE_ENABLE, value)
             except Exception:  # noqa: BLE001 - let the poll detect it
@@ -812,20 +815,32 @@ class ServoControlApp:
             self._stop_playback(False)
         self._set_free(not self._free)
 
-    def _set_free(self, free):
-        if self._free == free:
+    def _set_free(self, free, keep_torque_ids=()):
+        if self._free == free and not keep_torque_ids:
             return
         self._free = free
         if self._worker is not None:
-            self._worker.set_torque(not free)
+            if free and keep_torque_ids:
+                kept = set(keep_torque_ids)
+                self._worker.set_torque(False, [sid for sid in SERVO_IDS if sid not in kept])
+                self._worker.set_torque(True, [sid for sid in SERVO_IDS if sid in kept])
+            else:
+                self._worker.set_torque(not free)
         if free:
             self.free_btn.config(text="Free (on)")
             self._set_status("Servos free - move by hand", True)
             self.home_btn.state(["disabled"])
             self.apply_btn.state(["disabled"])
+            kept = set(keep_torque_ids)
             for row in self.rows:
-                row.free = True
-                row.slider.state(["disabled"])
+                if row.servo_id in kept:
+                    # Keep torque and the slider for e.g. the gripper while
+                    # the rest of the arm is free (trajectory teaching).
+                    row.free = False
+                    row.slider.state(["!disabled"])
+                else:
+                    row.free = True
+                    row.slider.state(["disabled"])
         else:
             self.free_btn.config(text="Free")
             self.home_btn.state(["!disabled"] if self._connected else ["disabled"])
@@ -851,12 +866,15 @@ class ServoControlApp:
     # ------------------------------------------------------------------ trajectories
 
     def _start_recording(self):
-        """Begin teaching: free the motors and sample the read-back pose."""
+        """Begin teaching: free the arm and sample the read-back pose.
+
+        The arm motors release torque so they can be moved by hand, but the
+        gripper keeps torque and its slider so it can be driven during the
+        take.
+        """
         if not self._connected or self._worker is None or self._playing:
             return
-        # Teaching is done by hand, so release torque automatically: the user
-        # does not need to press Free before Grabar.
-        self._set_free(True)
+        self._set_free(True, keep_torque_ids=(GRIPPER_SERVO_ID,))
         self._recording = True
         self._rec_samples = []
         self._rec_start_mono = time.monotonic()
