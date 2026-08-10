@@ -20,12 +20,14 @@ read-back position as counts + %, velocity and link status. Sliders are
     read-back pose, so the arm does not snap back. Record saves
     the current read-back pose (counts per servo, keyed by joint name) to
     pose.json; Apply commands the servos back to that saved pose, mirroring it
-    on the sliders. A trajectory can be taught by hand: Play starts sampling
-    the read-back positions (keyed by joint name) at a 100 ms cadence, Stop
-    saves the recorded samples to trajectories.json. Saved trajectories appear
-    in a dropdown; Run replays the selected one point by point at its recorded
-    cadence, and Delete removes it. If calibration.json is missing, the full
-    raw 0-4095 range is used.
+    on the sliders. A trajectory can be taught by hand: the Grabar button
+    starts sampling the read-back positions (keyed by joint name) at a 100 ms
+    cadence and toggles to Detener, which saves the recorded samples to
+    trajectories.json. Saved trajectories appear in a dropdown; Play/Pause
+    runs the selected one point by point at its recorded cadence (Pause holds
+    the arm at the current point, Play resumes, Detener stops and returns to
+    the trajectory's first pose), and Delete removes it. If calibration.json
+    is missing, the full raw 0-4095 range is used.
 
 Architecture: a background thread (ServoBusWorker) owns the serial port and
 the SDK. The GUI thread never touches the bus: slider movements are queued
@@ -554,31 +556,31 @@ class ServoControlApp:
         # Trajectory recording / playback bar.
         traj = ttk.Frame(root, padding=(8, 0, 8, 4))
         traj.grid(row=2, column=0, sticky="ew")
-        traj.columnconfigure(3, weight=1)
+        traj.columnconfigure(2, weight=1)
 
         ttk.Label(traj, text="Trajectories:").grid(row=0, column=0, sticky="w")
-        self.traj_play_btn = ttk.Button(
-            traj, text="Play", command=self._start_recording, state="disabled"
+        self.traj_record_btn = ttk.Button(
+            traj, text="Grabar", command=self._toggle_recording, state="disabled"
         )
-        self.traj_play_btn.grid(row=0, column=1, padx=4)
-        self.traj_stop_btn = ttk.Button(
-            traj, text="Stop", command=self._stop_recording, state="disabled"
-        )
-        self.traj_stop_btn.grid(row=0, column=2, padx=4)
+        self.traj_record_btn.grid(row=0, column=1, padx=4)
 
         self.trajectory_var = tk.StringVar()
         self.trajectory_combo = ttk.Combobox(
             traj, textvariable=self.trajectory_var, state="readonly", width=26
         )
-        self.trajectory_combo.grid(row=0, column=3, sticky="ew", padx=6)
+        self.trajectory_combo.grid(row=0, column=2, sticky="ew", padx=6)
         self.trajectory_combo.bind(
             "<<ComboboxSelected>>", lambda e: self._update_trajectory_ui()
         )
 
         self.playback_btn = ttk.Button(
-            traj, text="Run", command=self._play_trajectory, state="disabled"
+            traj, text="Play", command=self._toggle_playback, state="disabled"
         )
-        self.playback_btn.grid(row=0, column=4, padx=4)
+        self.playback_btn.grid(row=0, column=3, padx=4)
+        self.stop_btn = ttk.Button(
+            traj, text="Detener", command=self._stop_to_initial, state="disabled"
+        )
+        self.stop_btn.grid(row=0, column=4, padx=4)
         self.delete_btn = ttk.Button(
             traj, text="Delete", command=self._delete_trajectory, state="disabled"
         )
@@ -849,15 +851,25 @@ class ServoControlApp:
     # ------------------------------------------------------------------ trajectories
 
     def _start_recording(self):
-        """Begin teaching: sample the read-back pose at a fixed cadence."""
+        """Begin teaching: free the motors and sample the read-back pose."""
         if not self._connected or self._worker is None or self._playing:
             return
+        # Teaching is done by hand, so release torque automatically: the user
+        # does not need to press Free before Grabar.
+        self._set_free(True)
         self._recording = True
         self._rec_samples = []
         self._rec_start_mono = time.monotonic()
         self._rec_last_mono = self._rec_start_mono
         self._set_status("Recording trajectory...", True)
         self._update_trajectory_ui()
+
+    def _toggle_recording(self):
+        """Grabar starts teaching; the same button (Detener) saves it."""
+        if self._recording:
+            self._stop_recording()
+        else:
+            self._start_recording()
 
     def _sample_trajectory(self):
         """Append the current read-back pose once the sample cadence elapsed."""
@@ -884,6 +896,10 @@ class ServoControlApp:
             return
         self._recording = False
         samples = self._rec_samples
+        # Re-hold the arm at its current pose instead of leaving it limp:
+        # Grabar freed the motors automatically, so Detener re-engages torque.
+        if self._free:
+            self._set_free(False)
         self._update_trajectory_ui()
         if len(samples) < 2:
             self._flash_status("Trajectory discarded: too few points", False)
@@ -927,14 +943,21 @@ class ServoControlApp:
         recording = self._recording
         playing = self._playing
         has_selection = bool(self.trajectory_var.get())
-        self.traj_play_btn.state(
+        # Record toggle: Grabar <-> Detener.
+        self.traj_record_btn.config(text="Detener" if recording else "Grabar")
+        self.traj_record_btn.state(
+            ["!disabled"] if (connected and not playing) else ["disabled"]
+        )
+        # Play <-> Pause (Pause holds the current point, Play resumes).
+        self.playback_btn.config(
+            text="Pause" if (playing and not self._play_paused) else "Play"
+        )
+        self.playback_btn.state(
             ["!disabled"]
-            if (connected and not recording and not playing)
+            if (connected and has_selection and not recording)
             else ["disabled"]
         )
-        self.traj_stop_btn.state(["!disabled"] if recording else ["disabled"])
-        self.playback_btn.config(text="Cancel" if playing else "Run")
-        self.playback_btn.state(
+        self.stop_btn.state(
             ["!disabled"]
             if (connected and has_selection and not recording)
             else ["disabled"]
@@ -945,11 +968,17 @@ class ServoControlApp:
             else ["disabled"]
         )
 
-    def _play_trajectory(self):
-        """Replay the selected trajectory, commanding each recorded sample."""
-        if self._playing:
-            self._stop_playback(False)
-            return
+    def _toggle_playback(self):
+        """Play starts/resumes; Pause holds the current point."""
+        if not self._playing:
+            self._start_playback()
+        elif self._play_paused:
+            self._resume_playback()
+        else:
+            self._pause_playback()
+
+    def _start_playback(self):
+        """Run the selected trajectory, commanding each recorded sample."""
         if not self._connected or self._worker is None or self._recording:
             return
         if self._free:
@@ -958,13 +987,14 @@ class ServoControlApp:
         name = self.trajectory_var.get()
         trajectory = self._trajectories.get(name)
         if trajectory is None:
-            self._flash_status("Run: no trajectory selected", False)
+            self._flash_status("Play: no trajectory selected", False)
             return
         samples = trajectory.get("samples") or []
         if len(samples) < 2:
-            self._flash_status("Run: trajectory has too few points", False)
+            self._flash_status("Play: trajectory has too few points", False)
             return
         self._playing = True
+        self._play_paused = False
         self._play_samples = samples
         self._play_index = 0
         self._playback_job = None
@@ -972,8 +1002,29 @@ class ServoControlApp:
         self._flash_status("Playing: %s (%d points)" % (name, len(samples)), True)
         self._schedule_playback()
 
+    def _pause_playback(self):
+        """Hold the arm at the current point; the next Play resumes."""
+        if not self._playing or self._play_paused:
+            return
+        self._play_paused = True
+        if self._playback_job is not None:
+            self._root.after_cancel(self._playback_job)
+            self._playback_job = None
+        self._update_trajectory_ui()
+        self._flash_status("Playback paused", True)
+
+    def _resume_playback(self):
+        """Continue from the point where Pause was pressed."""
+        if not self._playing or not self._play_paused:
+            return
+        self._play_paused = False
+        self._update_trajectory_ui()
+        self._flash_status("Playback resumed", True)
+        if self._play_index < len(self._play_samples):
+            self._playback_job = self._root.after(10, self._schedule_playback)
+
     def _schedule_playback(self):
-        if not self._playing:
+        if not self._playing or self._play_paused:
             return
         samples = self._play_samples
         index = self._play_index
@@ -997,19 +1048,49 @@ class ServoControlApp:
         else:
             self._stop_playback(True)
 
-    def _stop_playback(self, finished):
-        if not self._playing and self._playback_job is None:
-            return
-        self._playing = False
+    def _cancel_playback(self):
+        """Stop running/paused playback silently, clearing scheduled jobs."""
         if self._playback_job is not None:
             self._root.after_cancel(self._playback_job)
             self._playback_job = None
         self._play_samples = []
+        self._play_paused = False
+        self._playing = False
+
+    def _stop_playback(self, finished):
+        if not self._playing and self._playback_job is None:
+            return
+        self._cancel_playback()
         self._update_trajectory_ui()
         if finished:
             self._flash_status("Playback finished", True)
         else:
             self._flash_status("Playback stopped", True)
+
+    def _stop_to_initial(self):
+        """Stop playback and return the arm to the trajectory's first pose."""
+        if not self._connected or self._worker is None or self._recording:
+            return
+        name = self.trajectory_var.get()
+        trajectory = self._trajectories.get(name)
+        if trajectory is None:
+            return
+        samples = trajectory.get("samples") or []
+        if not samples:
+            return
+        if self._playing:
+            self._cancel_playback()
+            self._update_trajectory_ui()
+        first = samples[0].get("servos")
+        commanded = 0
+        if isinstance(first, dict):
+            for row in self.rows:
+                counts = first.get(SERVO_NAMES.get(row.servo_id))
+                if isinstance(counts, int):
+                    row.command_counts(counts)
+                    commanded += 1
+        if commanded:
+            self._flash_status("Returned to initial pose", True)
 
     def _delete_trajectory(self):
         name = self.trajectory_var.get()
@@ -1028,11 +1109,7 @@ class ServoControlApp:
         """Drop an in-progress recording and stop playback (e.g. disconnect)."""
         self._recording = False
         if self._playing:
-            self._playing = False
-            if self._playback_job is not None:
-                self._root.after_cancel(self._playback_job)
-                self._playback_job = None
-            self._play_samples = []
+            self._cancel_playback()
         self._update_trajectory_ui()
 
     # ------------------------------------------------------------------ ui helpers
