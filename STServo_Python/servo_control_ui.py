@@ -11,14 +11,21 @@ between 0 and 100 percent of the TOTAL calibrated range of its servo
 range_min, 100 maps to range_max, linearly in encoder counts. Each row
 shows the commanded % (and the mapped encoder position it sends), the
 read-back position as counts + %, velocity and link status. Sliders are
-disabled while the bus is not connected and while an individual servo is
-not responding. When a servo (re)connects, its slider snaps to the servo's
-actual read-back position. A Home button in the toolbar sends every servo
-back to 50% of its calibrated range, the calibrated zero pose. Record saves
-the current read-back pose (counts per servo, keyed by joint name) to
-pose.json; Apply commands the servos back to that saved pose, mirroring it
-on the sliders. If calibration.json is missing, the full raw 0-4095 range
-is used.
+    disabled while the bus is not connected and while an individual servo is
+    not responding. When a servo (re)connects, its slider snaps to the servo's
+    actual read-back position. A Home button in the toolbar sends every servo
+    back to 50% of its calibrated range, the calibrated zero pose. A Free
+    button disables torque on every servo (SMS_STS_TORQUE_ENABLE = 0) so the
+    arm can be moved by hand; leaving Free re-holds each servo at its current
+    read-back pose, so the arm does not snap back. Record saves
+    the current read-back pose (counts per servo, keyed by joint name) to
+    pose.json; Apply commands the servos back to that saved pose, mirroring it
+    on the sliders. A trajectory can be taught by hand: Play starts sampling
+    the read-back positions (keyed by joint name) at a 100 ms cadence, Stop
+    saves the recorded samples to trajectories.json. Saved trajectories appear
+    in a dropdown; Run replays the selected one point by point at its recorded
+    cadence, and Delete removes it. If calibration.json is missing, the full
+    raw 0-4095 range is used.
 
 Architecture: a background thread (ServoBusWorker) owns the serial port and
 the SDK. The GUI thread never touches the bus: slider movements are queued
@@ -46,13 +53,14 @@ sys.path.insert(
 )
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from scservo_sdk import (
     GroupSyncRead,
     PortHandler,
     SMS_STS_PRESENT_POSITION_L,
     SMS_STS_PRESENT_SPEED_L,
+    SMS_STS_TORQUE_ENABLE,
     sms_sts,
 )
 
@@ -73,6 +81,10 @@ CALIBRATION_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "calibration.json"
 )
 POSE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pose.json")
+TRAJECTORIES_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "trajectories.json"
+)
+TRAJECTORY_SAMPLE_MS = 100  # teaching sample cadence (10 Hz)
 MOVE_SPEED = 300
 MOVE_ACC = 10
 # Movement profile units (STS3215 datasheet): speed in steps/s (max 3400 ~=
@@ -121,6 +133,37 @@ def _load_calibrated_ranges():
     return ranges
 
 
+def _load_trajectories():
+    """Load {name: trajectory} from trajectories.json.
+
+    Malformed or too-short entries are skipped. Returns {} when the file is
+    absent or unreadable, so the UI starts with an empty trajectory menu.
+    """
+    try:
+        with open(TRAJECTORIES_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+    trajectories = {}
+    for item in data.get("trajectories", []):
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        samples = item.get("samples")
+        if not isinstance(name, str) or not isinstance(samples, list):
+            continue
+        if len(samples) < 2:
+            continue
+        if not all(
+            isinstance(sample, dict) and isinstance(sample.get("servos"), dict)
+            for sample in samples
+        ):
+            continue
+        trajectories[name] = item
+    return trajectories
+
+
 class ServoRow:
     """One slider row: commanded % (and mapped counts) | slider | feedback."""
 
@@ -135,6 +178,9 @@ class ServoRow:
         # Suppresses the slider command callback while we move the knob
         # programmatically (ttk.Scale.set() does fire the -command here).
         self._syncing = False
+        # True while the app is in Free mode: feedback must not re-enable the
+        # slider, because slider writes would fight the hand-moved arm.
+        self.free = False
         # Last read-back position in counts; None while disconnected.
         self._last_position = None
 
@@ -223,7 +269,8 @@ class ServoRow:
                 % (position, percent, speed),
                 foreground=COLOR_CONNECTED,
             )
-            self.slider.state(["!disabled"])
+            if not self.free:
+                self.slider.state(["!disabled"])
             # On the first feedback after (re)connect, snap the slider to the
             # servo's actual pose without queueing a write.
             if self._sync_pending:
@@ -260,6 +307,7 @@ class ServoBusWorker(threading.Thread):
         self._port_name = port_name
         self._feedback_q = feedback_q
         self._cmd_q = queue.Queue()
+        self._torque_q = queue.Queue()
         self._pending = {}
         self._shutdown = threading.Event()
         self._params_lock = threading.Lock()
@@ -271,6 +319,11 @@ class ServoBusWorker(threading.Thread):
     def write(self, servo_id, position):
         if not self._shutdown.is_set():
             self._cmd_q.put((servo_id, position))
+
+    def set_torque(self, enabled):
+        """Enable/disable torque on every servo (Free mode)."""
+        if not self._shutdown.is_set():
+            self._torque_q.put(bool(enabled))
 
     def stop(self):
         self._shutdown.set()
@@ -310,6 +363,14 @@ class ServoBusWorker(threading.Thread):
         try:
             while not self._shutdown.is_set():
                 now = time.monotonic()
+
+                # Drain torque commands (Free mode) before position writes.
+                try:
+                    while True:
+                        enabled = self._torque_q.get_nowait()
+                        self._apply_torque(ph, enabled)
+                except queue.Empty:
+                    pass
 
                 # Drain queued commands, keeping only the newest value per servo.
                 try:
@@ -368,6 +429,14 @@ class ServoBusWorker(threading.Thread):
                 feedback.append((servo_id, 0, 0, False))
         self._feedback_q.put(("feedback", feedback))
 
+    def _apply_torque(self, ph, enabled):
+        value = 1 if enabled else 0
+        for servo_id in SERVO_IDS:
+            try:
+                ph.write1ByteTxRx(servo_id, SMS_STS_TORQUE_ENABLE, value)
+            except Exception:  # noqa: BLE001 - let the poll detect it
+                pass
+
 
 class ServoControlApp:
     def __init__(self, root):
@@ -377,11 +446,21 @@ class ServoControlApp:
         self._connected = False
         self._drain_job = None
         self._status_token = 0
+        self._free = False
+        self._trajectories = _load_trajectories()
+        self._recording = False
+        self._rec_samples = []
+        self._rec_start_mono = 0.0
+        self._rec_last_mono = 0.0
+        self._playing = False
+        self._playback_job = None
+        self._play_index = 0
+        self._play_samples = []
 
         root.title("STS3215 Servo Control")
         root.geometry("900x560")
         root.columnconfigure(0, weight=1)
-        root.rowconfigure(2, weight=1)
+        root.rowconfigure(3, weight=1)
 
         self._calibrated = _load_calibrated_ranges()
         if self._calibrated:
@@ -392,7 +471,7 @@ class ServoControlApp:
         # Device / connection bar.
         top = ttk.Frame(root, padding=(8, 8, 8, 4))
         top.grid(row=0, column=0, sticky="ew")
-        top.columnconfigure(7, weight=1)
+        top.columnconfigure(8, weight=1)
 
         ttk.Label(top, text="Device:").grid(row=0, column=0, sticky="w")
         self.port_var = tk.StringVar(value=DEFAULT_PORT)
@@ -422,8 +501,13 @@ class ServoControlApp:
         )
         self.apply_btn.grid(row=0, column=6, padx=4)
 
+        self.free_btn = ttk.Button(
+            top, text="Free", command=self._toggle_free, state="disabled"
+        )
+        self.free_btn.grid(row=0, column=7, padx=4)
+
         self.status_label = ttk.Label(top, text="Disconnected", foreground=COLOR_DISCONNECTED)
-        self.status_label.grid(row=0, column=7, sticky="e", padx=(12, 0))
+        self.status_label.grid(row=0, column=8, sticky="e", padx=(12, 0))
 
         # Movement parameters, live-tunable: applied to every bus write.
         params = ttk.Frame(root, padding=(8, 0, 8, 4))
@@ -467,9 +551,44 @@ class ServoControlApp:
         self.acc_spin.bind("<Return>", lambda e: self._apply_move_params())
         self.acc_spin.bind("<FocusOut>", lambda e: self._apply_move_params())
 
+        # Trajectory recording / playback bar.
+        traj = ttk.Frame(root, padding=(8, 0, 8, 4))
+        traj.grid(row=2, column=0, sticky="ew")
+        traj.columnconfigure(3, weight=1)
+
+        ttk.Label(traj, text="Trajectories:").grid(row=0, column=0, sticky="w")
+        self.traj_play_btn = ttk.Button(
+            traj, text="Play", command=self._start_recording, state="disabled"
+        )
+        self.traj_play_btn.grid(row=0, column=1, padx=4)
+        self.traj_stop_btn = ttk.Button(
+            traj, text="Stop", command=self._stop_recording, state="disabled"
+        )
+        self.traj_stop_btn.grid(row=0, column=2, padx=4)
+
+        self.trajectory_var = tk.StringVar()
+        self.trajectory_combo = ttk.Combobox(
+            traj, textvariable=self.trajectory_var, state="readonly", width=26
+        )
+        self.trajectory_combo.grid(row=0, column=3, sticky="ew", padx=6)
+        self.trajectory_combo.bind(
+            "<<ComboboxSelected>>", lambda e: self._update_trajectory_ui()
+        )
+
+        self.playback_btn = ttk.Button(
+            traj, text="Run", command=self._play_trajectory, state="disabled"
+        )
+        self.playback_btn.grid(row=0, column=4, padx=4)
+        self.delete_btn = ttk.Button(
+            traj, text="Delete", command=self._delete_trajectory, state="disabled"
+        )
+        self.delete_btn.grid(row=0, column=5, padx=4)
+
+        self._refresh_trajectory_list()
+
         # Servo rows.
         body = ttk.Frame(root, padding=(8, 4, 8, 8))
-        body.grid(row=2, column=0, sticky="nsew")
+        body.grid(row=3, column=0, sticky="nsew")
         body.columnconfigure(0, weight=1)
 
         self.rows = []
@@ -501,8 +620,10 @@ class ServoControlApp:
         self.home_btn.state(["!disabled"])
         self.record_btn.state(["!disabled"])
         self.apply_btn.state(["!disabled"])
+        self.free_btn.state(["!disabled"])
         self.port_entry.state(["disabled"])
         self._apply_move_params()
+        self._update_trajectory_ui()
         self._set_status("Connecting...", True)
         self._drain_job = self._root.after(DRAIN_INTERVAL_MS, self._drain)
 
@@ -525,9 +646,12 @@ class ServoControlApp:
         self.home_btn.state(["disabled"])
         self.record_btn.state(["disabled"])
         self.apply_btn.state(["disabled"])
+        self.free_btn.state(["disabled"])
         self.port_entry.state(["!disabled"])
+        self._reset_free_state()
         for row in self.rows:
             row.set_feedback(None, None, False)
+        self._cancel_trajectory_activity()
         self._set_status("Disconnected", False)
 
     def _abort_connection(self, message):
@@ -549,9 +673,12 @@ class ServoControlApp:
         self.home_btn.state(["disabled"])
         self.record_btn.state(["disabled"])
         self.apply_btn.state(["disabled"])
+        self.free_btn.state(["disabled"])
         self.port_entry.state(["!disabled"])
+        self._reset_free_state()
         for row in self.rows:
             row.set_feedback(None, None, False)
+        self._cancel_trajectory_activity()
         self._set_status(message, was_connected)
 
     # ------------------------------------------------------------------ feedback drain
@@ -581,6 +708,8 @@ class ServoControlApp:
                             row.set_feedback(position, speed, True)
                         else:
                             row.set_feedback(None, None, False)
+                    if self._recording:
+                        self._sample_trajectory()
         except queue.Empty:
             pass
 
@@ -612,7 +741,7 @@ class ServoControlApp:
 
     def _home_all(self):
         """Send every servo back to the calibrated zero pose (50%)."""
-        if not self._connected or self._worker is None:
+        if not self._connected or self._worker is None or self._free:
             return
         for row in self.rows:
             row.home()
@@ -644,7 +773,7 @@ class ServoControlApp:
 
     def _apply_pose(self):
         """Command the servos to the positions saved in pose.json."""
-        if not self._connected or self._worker is None:
+        if not self._connected or self._worker is None or self._free:
             return
         try:
             with open(POSE_PATH, "r", encoding="utf-8") as fh:
@@ -670,6 +799,241 @@ class ServoControlApp:
             self._flash_status("Applied pose: %d servos -> %s" % (applied, POSE_PATH), True)
         else:
             self._flash_status("Apply: no matching servos in pose file", False)
+
+    # ------------------------------------------------------------------ free mode
+
+    def _toggle_free(self):
+        """Toggle Free mode: disable torque so the arm can be moved by hand."""
+        if not self._connected or self._worker is None:
+            return
+        if self._playing:
+            self._stop_playback(False)
+        self._set_free(not self._free)
+
+    def _set_free(self, free):
+        if self._free == free:
+            return
+        self._free = free
+        if self._worker is not None:
+            self._worker.set_torque(not free)
+        if free:
+            self.free_btn.config(text="Free (on)")
+            self._set_status("Servos free - move by hand", True)
+            self.home_btn.state(["disabled"])
+            self.apply_btn.state(["disabled"])
+            for row in self.rows:
+                row.free = True
+                row.slider.state(["disabled"])
+        else:
+            self.free_btn.config(text="Free")
+            self.home_btn.state(["!disabled"] if self._connected else ["disabled"])
+            self.apply_btn.state(["!disabled"] if self._connected else ["disabled"])
+            for row in self.rows:
+                row.free = False
+                pos = row.record_position()
+                if pos is not None:
+                    # Hold the current pose so the arm does not snap back to
+                    # the stale pre-free goals when torque re-engages.
+                    row.command_counts(pos)
+                    row.slider.state(["!disabled"])
+            if self._connected:
+                self._set_status("Connected", True)
+
+    def _reset_free_state(self):
+        """Clear Free mode state without touching the bus (on disconnect)."""
+        self._free = False
+        self.free_btn.config(text="Free")
+        for row in self.rows:
+            row.free = False
+
+    # ------------------------------------------------------------------ trajectories
+
+    def _start_recording(self):
+        """Begin teaching: sample the read-back pose at a fixed cadence."""
+        if not self._connected or self._worker is None or self._playing:
+            return
+        self._recording = True
+        self._rec_samples = []
+        self._rec_start_mono = time.monotonic()
+        self._rec_last_mono = self._rec_start_mono
+        self._set_status("Recording trajectory...", True)
+        self._update_trajectory_ui()
+
+    def _sample_trajectory(self):
+        """Append the current read-back pose once the sample cadence elapsed."""
+        now = time.monotonic()
+        if (now - self._rec_last_mono) * 1000.0 < TRAJECTORY_SAMPLE_MS:
+            return
+        self._rec_last_mono = now
+        servos = {}
+        for row in self.rows:
+            pos = row.record_position()
+            if pos is not None:
+                name = SERVO_NAMES.get(row.servo_id, "servo_%d" % row.servo_id)
+                servos[name] = pos
+        self._rec_samples.append(
+            {"t_ms": round((now - self._rec_start_mono) * 1000.0), "servos": servos}
+        )
+        self._set_status(
+            "Recording trajectory... (%d points)" % len(self._rec_samples), True
+        )
+
+    def _stop_recording(self):
+        """Stop teaching and persist the recorded samples as a trajectory."""
+        if not self._recording:
+            return
+        self._recording = False
+        samples = self._rec_samples
+        self._update_trajectory_ui()
+        if len(samples) < 2:
+            self._flash_status("Trajectory discarded: too few points", False)
+            return
+        name = "tray_" + time.strftime("%Y%m%d_%H%M%S")
+        while name in self._trajectories:
+            name += "_"
+        trajectory = {
+            "name": name,
+            "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "sample_interval_ms": TRAJECTORY_SAMPLE_MS,
+            "samples": samples,
+        }
+        self._trajectories[name] = trajectory
+        self._save_trajectories()
+        self._refresh_trajectory_list()
+        self.trajectory_var.set(name)
+        self._update_trajectory_ui()
+        self._flash_status(
+            "Trajectory saved: %s (%d points)" % (name, len(samples)), True
+        )
+
+    def _save_trajectories(self):
+        payload = {"trajectories": list(self._trajectories.values())}
+        try:
+            with open(TRAJECTORIES_PATH, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, indent=2)
+        except OSError as exc:
+            self._flash_status("Could not save trajectories: %s" % exc, False)
+
+    def _refresh_trajectory_list(self):
+        names = sorted(self._trajectories.keys())
+        self.trajectory_combo["values"] = names
+        current = self.trajectory_var.get()
+        if current not in names:
+            self.trajectory_var.set(names[-1] if names else "")
+        self._update_trajectory_ui()
+
+    def _update_trajectory_ui(self):
+        connected = self._connected
+        recording = self._recording
+        playing = self._playing
+        has_selection = bool(self.trajectory_var.get())
+        self.traj_play_btn.state(
+            ["!disabled"]
+            if (connected and not recording and not playing)
+            else ["disabled"]
+        )
+        self.traj_stop_btn.state(["!disabled"] if recording else ["disabled"])
+        self.playback_btn.config(text="Cancel" if playing else "Run")
+        self.playback_btn.state(
+            ["!disabled"]
+            if (connected and has_selection and not recording)
+            else ["disabled"]
+        )
+        self.delete_btn.state(
+            ["!disabled"]
+            if (has_selection and not recording and not playing)
+            else ["disabled"]
+        )
+
+    def _play_trajectory(self):
+        """Replay the selected trajectory, commanding each recorded sample."""
+        if self._playing:
+            self._stop_playback(False)
+            return
+        if not self._connected or self._worker is None or self._recording:
+            return
+        if self._free:
+            # Running a trajectory needs torque; release Free mode first.
+            self._set_free(False)
+        name = self.trajectory_var.get()
+        trajectory = self._trajectories.get(name)
+        if trajectory is None:
+            self._flash_status("Run: no trajectory selected", False)
+            return
+        samples = trajectory.get("samples") or []
+        if len(samples) < 2:
+            self._flash_status("Run: trajectory has too few points", False)
+            return
+        self._playing = True
+        self._play_samples = samples
+        self._play_index = 0
+        self._playback_job = None
+        self._update_trajectory_ui()
+        self._flash_status("Playing: %s (%d points)" % (name, len(samples)), True)
+        self._schedule_playback()
+
+    def _schedule_playback(self):
+        if not self._playing:
+            return
+        samples = self._play_samples
+        index = self._play_index
+        if index >= len(samples):
+            self._stop_playback(True)
+            return
+        sample = samples[index]
+        servos = sample.get("servos")
+        if isinstance(servos, dict):
+            for row in self.rows:
+                counts = servos.get(SERVO_NAMES.get(row.servo_id))
+                if isinstance(counts, int):
+                    row.command_counts(counts)
+        self._play_index += 1
+        if self._play_index < len(samples):
+            delay_ms = max(
+                10,
+                samples[self._play_index].get("t_ms", 0) - sample.get("t_ms", 0),
+            )
+            self._playback_job = self._root.after(delay_ms, self._schedule_playback)
+        else:
+            self._stop_playback(True)
+
+    def _stop_playback(self, finished):
+        if not self._playing and self._playback_job is None:
+            return
+        self._playing = False
+        if self._playback_job is not None:
+            self._root.after_cancel(self._playback_job)
+            self._playback_job = None
+        self._play_samples = []
+        self._update_trajectory_ui()
+        if finished:
+            self._flash_status("Playback finished", True)
+        else:
+            self._flash_status("Playback stopped", True)
+
+    def _delete_trajectory(self):
+        name = self.trajectory_var.get()
+        if not name or name not in self._trajectories:
+            return
+        if not messagebox.askyesno(
+            "Delete trajectory", "Delete the trajectory '%s'?" % name
+        ):
+            return
+        del self._trajectories[name]
+        self._save_trajectories()
+        self._refresh_trajectory_list()
+        self._flash_status("Trajectory deleted: %s" % name, True)
+
+    def _cancel_trajectory_activity(self):
+        """Drop an in-progress recording and stop playback (e.g. disconnect)."""
+        self._recording = False
+        if self._playing:
+            self._playing = False
+            if self._playback_job is not None:
+                self._root.after_cancel(self._playback_job)
+                self._playback_job = None
+            self._play_samples = []
+        self._update_trajectory_ui()
 
     # ------------------------------------------------------------------ ui helpers
 
