@@ -1,0 +1,64 @@
+,,Brazo Robótico - Diagrama de Gantt,,,Actualización,21/8/2026,,JUNIO,JULIO,AGOSTO,SEPTIEMBRE,OCTUBRE,NOVIEMBRE,DICIEMBRE
+,,,,,Inicio,1/6/2026,,SEMANA 23,SEMANA 24,SEMANA 25,SEMANA 26,SEMANA 27,SEMANA 28,SEMANA 29,SEMANA 30,SEMANA 31,SEMANA 32,SEMANA 33,SEMANA 34,SEMANA 35,SEMANA 36,SEMANA 37,SEMANA 38,SEMANA 39,SEMANA 40,SEMANA 41,SEMANA 42,SEMANA 43,SEMANA 44,SEMANA 45,SEMANA 46,SEMANA 47,SEMANA 48,SEMANA 49,SEMANA 50,SEMANA 51,SEMANA 52,SEMANA 53
+,,,,,,,,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D,L,M,X,J,V,S,D
+,ID,TÍTULO DE LA TAREA,DÍAS,F. INICIO,F. ENTREGA,PROGRESO,DEPENDENCIAS,1/6/2026,2/6/2026,3/6/2026,4/6/2026,5/6/2026,6/6/2026,7/6/2026,8/6/2026,9/6/2026,10/6/2026,11/6/2026,12/6/2026,13/6/2026,14/6/2026,15/6/2026,16/6/2026,17/6/2026,18/6/2026,19/6/2026,20/6/2026,21/6/2026,22/6/2026,23/6/2026,24/6/2026,25/6/2026,26/6/2026,27/6/2026,28/6/2026,29/6/2026,30/6/2026,1/7/2026,2/7/2026,3/7/2026,4/7/2026,5/7/2026,6/7/2026,7/7/2026,8/7/2026,9/7/2026,10/7/2026,11/7/2026,12/7/2026,13/7/2026,14/7/2026,15/7/2026,16/7/2026,17/7/2026,18/7/2026,19/7/2026,20/7/2026,21/7/2026,22/7/2026,23/7/2026,24/7/2026,25/7/2026,26/7/2026,27/7/2026,28/7/2026,29/7/2026,30/7/2026,31/7/2026,1/8/2026,2/8/2026,3/8/2026,4/8/2026,5/8/2026,6/8/2026,7/8/2026,8/8/2026,9/8/2026,10/8/2026,11/8/2026,12/8/2026,13/8/2026,14/8/2026,15/8/2026,16/8/2026,17/8/2026,18/8/2026,19/8/2026,20/8/2026,21/8/2026,22/8/2026,23/8/2026,24/8/2026,25/8/2026,26/8/2026,27/8/2026,28/8/2026,29/8/2026,30/8/2026,31/8/2026,1/9/2026,2/9/2026,3/9/2026,4/9/2026,5/9/2026,6/9/2026,7/9/2026,8/9/2026,9/9/2026,10/9/2026,11/9/2026,12/9/2026,13/9/2026,14/9/2026,15/9/2026,16/9/2026,17/9/2026,18/9/2026,19/9/2026,20/9/2026,21/9/2026,22/9/2026,23/9/2026,24/9/2026,25/9/2026,26/9/2026,27/9/2026,28/9/2026,29/9/2026,30/9/2026,1/10/2026,2/10/2026,3/10/2026,4/10/2026,5/10/2026,6/10/2026,7/10/2026,8/10/2026,9/10/2026,10/10/2026,11/10/2026,12/10/2026,13/10/2026,14/10/2026,15/10/2026,16/10/2026,17/10/2026,18/10/2026,19/10/2026,20/10/2026,21/10/2026,22/10/2026,23/10/2026,24/10/2026,25/10/2026,26/10/2026,27/10/2026,28/10/2026,29/10/2026,30/10/2026,31/10/2026,1/11/2026,2/11/2026,3/11/2026,4/11/2026,5/11/2026,6/11/2026,7/11/2026,8/11/2026,9/11/2026,10/11/2026,11/11/2026,12/11/2026,13/11/2026,14/11/2026,15/11/2026,16/11/2026,17/11/2026,18/11/2026,19/11/2026,20/11/2026,21/11/2026,22/11/2026,23/11/2026,24/11/2026,25/11/2026,26/11/2026,27/11/2026,28/11/2026,29/11/2026,30/11/2026,1/12/2026,2/12/2026,3/12/2026,4/12/2026,5/12/2026,6/12/2026,7/12/2026,8/12/2026,9/12/2026,10/12/2026,11/12/2026,12/12/2026,13/12/2026,14/12/2026,15/12/2026,16/12/2026,17/12/2026,18/12/2026,19/12/2026,20/12/2026,21/12/2026,22/12/2026,23/12/2026,24/12/2026,25/12/2026,26/12/2026,27/12/2026,28/12/2026,29/12/2026,30/12/2026,31/12/2026,1/1/2027,2/1/2027,3/1/2027
+Diseño,T01,Arquitectura general del sistema,3,1/6/2026,3/6/2026,100%
+T02,Arquitectura ROS 2 del brazo,5,15/7/2026,28/8/2026,75%,T01
+T03,Modo lider y modo seguidor,1,29/8/2026,29/8/2026,50%,"T01,T02"
+T04,Seleccionar modelo 3D,1,4/6/2026,4/6/2026,100%,T01
+T05,Seleccionar componentes principales,2,5/6/2026,6/6/2026,100%,"T01,T04"
+T06,Diseñar esquemático de PCB,7,7/6/2026,13/6/2026,5%,T05
+T07,Rutear PCB de interfaz,7,14/6/2026,20/6/2026,0%,T06
+Compras,T08,Comprar componentes para PCB,3,21/6/2026,23/6/2026,0%,"T06,T07"
+T11,Comprar servomotores,15,7/6/2026,21/6/2026,100%,T05
+T12,Comprar placa driver para servomotores,15,7/6/2026,21/6/2026,100%,T05
+T13,Comprar fuente de alimentación principal,5,7/6/2026,11/6/2026,100%,T05
+T59,Testear movimiento de servomotores y driver,5,22/6/2026,26/6/2026,100%,"T11,T12,T13"
+T14,Comprar display LCD 20x4 y botonera,5,7/6/2026,11/6/2026,50%,T05
+T15,Comprar computadora embebida,15,7/6/2026,21/6/2026,0%,T05
+PCB,T09,Fabricar y validar PCB de interfaz,14,24/6/2026,7/7/2026,0%,"T07,T08"
+T10,PCB de interfaz validada,0,8/7/2026,8/7/2026,0%,T09
+Entorno,T16,Aprender a utilizar impresora 3D,15,1/6/2026,15/6/2026,100%
+T17,Preparar entorno de desarrollo ROS 2,15,29/8/2026,12/9/2026,75%,"T02,T15"
+T18,Preparar repositorio,1,13/9/2026,13/9/2026,75%,T17
+3D,T37,Imprimir piezas del brazo en PLA,7,22/6/2026,28/6/2026,100%,"T04,T11,T16"
+T38,Ensamblar estructura mecánica del brazo,7,29/6/2026,5/8/2026,100%,"T11,T37"
+Test,T56,Probar rigidez mecánica del brazo,2,6/8/2026,7/8/2026,100%,T38
+T57,Probar capacidad de carga del brazo,2,8/8/2026,9/8/2026,100%,T56
+T58,Validación mecánica del brazo,0,10/8/2026,10/8/2026,100%,"T56,T57"
+Integ.,T60,Diseño y fabricación de gabinete,7,6/8/2026,12/8/2026,0%,"T10,T11,T12,T13,T14,T15,T38"
+T39,Montar electrónica en gabinete,3,13/8/2026,15/8/2026,20%,T60
+T40,Cablear alimentación y electrónica,1,16/8/2026,16/8/2026,0%,T39
+Test,T41,Verificar consumo eléctrico,1,17/8/2026,17/8/2026,0%,T40
+Sim,T19,Modelar brazo para simulación,5,13/9/2026,17/9/2026,0%,"T04,T17"
+T20,Configurar modelo del brazo en Gazebo,5,18/9/2026,22/9/2026,0%,T19
+T21,Validar movimiento básico en simulación,0,23/9/2026,23/9/2026,0%,T20
+Servo,T22,Control individual de servomotores,5,14/9/2026,18/9/2026,0%,"T10,T11,T12,T13,T17,T18"
+T23,Lectura de posición de cada articulación,5,19/9/2026,23/9/2026,0%,T22
+Cal.,T24,Calibración inicial del brazo,20,24/9/2026,13/10/2026,0%,T23
+T25,Posición Home,5,14/10/2026,18/10/2026,0%,T24
+Mov.,T26,Movimiento manual del brazo,5,19/10/2026,23/10/2026,0%,"T22,T23,T25"
+Mov.,T27,Grabación de trayectorias,15,24/10/2026,7/11/2026,0%,"T22,T23,T26"
+T28,Almacenamiento persistente de trayectorias,2,8/11/2026,9/11/2026,0%,T27
+T29,Selección de trayectorias guardadas,2,10/11/2026,11/11/2026,0%,T28
+T30,Reproducción de trayectoria seleccionada,5,12/11/2026,16/11/2026,0%,"T28,T29"
+T31,Eliminación de trayectorias,1,12/11/2026,12/11/2026,0%,"T28,T29"
+UI,T32,Desarrollar lógica de estados del sistema,5,17/11/2026,21/11/2026,0%,"T27,T30,T31"
+T33,Interfaz con display LCD,10,22/11/2026,1/12/2026,0%,"T10,T14,T32"
+T34,Interfaz con botonera,10,22/11/2026,1/12/2026,0%,"T10,T14,T32"
+Seg.,T35,Parada de emergencia o detención segura,5,2/12/2026,6/12/2026,0%,"T22,T30,T32,T34"
+Ini.,T36,Arranque automático del sistema,3,22/11/2026,24/11/2026,0%,"T15,T17,T18,T32"
+Test,T42,Probar manipulación de objetos livianos,1,7/12/2026,7/12/2026,0%,"T30,T35,T38,T40,T41"
+T43,Probar repetibilidad de trayectorias,1,8/12/2026,8/12/2026,0%,T42
+T44,Probar precisión de movimiento,1,9/12/2026,9/12/2026,0%,"T42,T43"
+T45,Prueba de integración colocando anillo,1,10/12/2026,10/12/2026,0%,T44
+T46,Corregir fallas detectadas en pruebas,7,11/12/2026,17/12/2026,0%,"T42,T43,T44,T45"
+T47,Validar manipulación de objetos livianos,0,18/12/2026,18/12/2026,0%,"T42,T46"
+T48,Validar repetibilidad de trayectorias,0,18/12/2026,18/12/2026,0%,"T43,T46"
+T49,Validar precisión de movimiento,0,18/12/2026,18/12/2026,0%,"T44,T46"
+T50,Validar prueba de integración,0,18/12/2026,18/12/2026,0%,"T45,T46"
+PETG,T51,Migrar piezas finales a PETG si corresponde,14,18/12/2026,31/12/2026,0%,"T16,T46"
+Doc.,T52,Documentar instalación uso y operación,10,19/12/2026,28/12/2026,0%,"T47,T48,T49,T50"
+T53,Documentar resultados de pruebas y validación,10,19/12/2026,28/12/2026,0%,"T47,T48,T49,T50"
+Final,T54,Preparar presentación final y demo,3,29/12/2026,31/12/2026,0%,"T52,T53"
+T55,Entrega final del proyecto,0,1/1/2027,1/1/2027,0%,T54
