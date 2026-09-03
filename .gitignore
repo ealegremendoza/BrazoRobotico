@@ -1,5 +1,6 @@
 # Local editor state
 .vscode/browse.vc.db*
+firmware/.vscode/
 
 # Python
 **/__pycache__/
