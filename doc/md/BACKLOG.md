@@ -11,7 +11,7 @@ _Última actualización: 2026-08-30_
 
 ## 🔧 ESP32 / Embedded Systems
 
-- [ ] **[E01]** Programar ESP32 para poder enviar y recibir mensajes por puerto serie a través de los pines TX-RX
+- [x] **[E01]** Programar ESP32 para poder enviar y recibir mensajes por puerto serie a través de los pines TX-RX
 - [ ] **[E02]** Medir niveles de las señales que salen por TX y RX del ESP32 usando el analizador lógico
 - [ ] **[E03]** Averiguar si es necesario un adaptador lógico entre el ESP32 y el driver de los servomotores; si se necesita, conseguir uno
 - [ ] **[E04]** Averiguar cómo comandar el driver de motores vía TX-RX
