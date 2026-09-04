@@ -22,7 +22,7 @@ _Última actualización: 2026-08-30_
 
 ## 🦾 Brazo Robótico
 
-- [ ] **[R01]** Averiguar si el proyecto armso-101 (en el cual está basado mi proyecto) tiene un URDF para simular con Gazebo ROS2
+- [x] **[R01]** Averiguar si el proyecto armso-101 (en el cual está basado mi proyecto) tiene un URDF para simular con Gazebo ROS2 — ver `doc/md/bitacora-R01-urdf.md`
 - [ ] **[R02]** (Depende de R01) Si tiene URDF: tratar de levantar el modelo en Gazebo. Si no tiene: ver cómo generarlo usando los STL disponibles
 - [ ] **[R03]** Definir los nodos que se usarán para manejar el brazo robótico, basándose en los mismos vistos en el curso de manejo de brazo robótico con ROS2
 
