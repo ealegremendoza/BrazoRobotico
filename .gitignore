@@ -1,6 +1,12 @@
 # Local editor state
-.vscode/browse.vc.db*
+**/.vscode/browse.vc.db*
 firmware/.vscode/
+robotic_arm_ws/.vscode/
+
+# ROS2 colcon build artifacts
+robotic_arm_ws/build/
+robotic_arm_ws/install/
+robotic_arm_ws/log/
 
 # Python
 **/__pycache__/
