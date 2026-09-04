@@ -8,3 +8,4 @@ STServo_Python/stservo-env/
 
 # Local tooling state
 .atl/
+.codegraph/
