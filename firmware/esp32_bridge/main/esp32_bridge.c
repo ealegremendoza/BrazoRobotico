@@ -12,7 +12,7 @@
 #define BRIDGE_CTS (UART_PIN_NO_CHANGE)
 
 #define BRIDGE_UART_PORT CONFIG_EXAMPLE_UART_PORT_NUM
-#define BRIDGE_BAUD_RATE 9600 // must match the Nano's SoftwareSerial, not CONFIG_EXAMPLE_UART_BAUD_RATE (115200, inherited from E01)
+#define BRIDGE_BAUD_RATE CONFIG_EXAMPLE_UART_BAUD_RATE // set to 9600 via menuconfig to match the Nano's SoftwareSerial
 #define BRIDGE_TASK_STACK_SIZE CONFIG_EXAMPLE_TASK_STACK_SIZE
 
 #define STX 0x02
