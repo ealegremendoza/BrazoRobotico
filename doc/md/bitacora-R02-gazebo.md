@@ -185,6 +185,24 @@ ros2 action send_goal /arm_controller/follow_joint_trajectory control_msgs/actio
 ```
 Trayectoria mandada al action `FollowJointTrajectory` de `arm_controller` (solo `shoulder_pan` a 0.3 rad, resto en 0, en 3s), con Gazebo + `gazebo.launch.py` + `controller.launch.py` corriendo. **Resultado: `Goal successfully reached!`, status `SUCCEEDED`.** El brazo se movió en Gazebo tal cual lo pedido. Cadena completa validada: URDF (xacro) → spawn en Gazebo → `ros2_control` activado → controllers spawneados → movimiento real comandado desde ROS2.
 
+### Control interactivo con sliders
+
+Inspirado en `arduinobot_controller` del proyecto de referencia (`slider_control.py` + `slider_controller.launch.py`), adaptado a los nombres reales de joints (5 del brazo + `gripper`, en vez de los 3+1 del curso):
+
+- `robotic_arm_controller/robotic_arm_controller/slider_control.py`: nodo que se suscribe a `/joint_commands` (`sensor_msgs/JointState`) y separa el mensaje en dos `trajectory_msgs/JointTrajectory` — uno a `arm_controller/joint_trajectory` (`positions[:5]`) y otro a `gripper_controller/joint_trajectory` (`positions[5]`), publicados directo por tópico (los `JointTrajectoryController` aceptan comandos por tópico además de por action).
+- `robotic_arm_controller/launch/slider_controller.launch.py`: incluye `controller.launch.py`, levanta `joint_state_publisher_gui` **remapeado** (`/joint_states` → `/joint_commands`, reutilizando la ventana de sliders como generador de comandos en vez de lector de estado) y el nodo `slider_control`.
+- `CMakeLists.txt`: agregado `ament_cmake_python` + `ament_python_install_package(${PROJECT_NAME})` + `install(PROGRAMS .../slider_control.py DESTINATION lib/${PROJECT_NAME} RENAME slider_control)` (paquete `ament_cmake` con un nodo Python adentro — patrón válido, no hace falta migrar a `ament_python`).
+- `package.xml`: agregado `ament_cmake_python` como `buildtool_depend`, más `rclpy`, `sensor_msgs`, `trajectory_msgs`, `joint_state_publisher_gui` como `exec_depend`.
+
+```bash
+colcon build
+# Terminal 1
+ros2 launch robotic_arm_description gazebo.launch.py
+# Terminal 2
+ros2 launch robotic_arm_controller slider_controller.launch.py
+```
+**Resultado: funciona.** Ventana de 6 sliders, moviéndolos el brazo reacciona en vivo en Gazebo.
+
 ## Próximos pasos
 
 - [x] Crear workspace ROS2 (`robotic_arm_ws/src`)

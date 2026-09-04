@@ -7,13 +7,19 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+
+ament_python_install_package(${PROJECT_NAME})
 
 install(
     DIRECTORY config launch
     DESTINATION share/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+    ${PROJECT_NAME}/slider_control.py
+    DESTINATION lib/${PROJECT_NAME}
+    RENAME slider_control
 )
 
 if(BUILD_TESTING)
