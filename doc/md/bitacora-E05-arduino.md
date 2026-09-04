@@ -129,10 +129,21 @@ stateDiagram-v2
 - **Truco de validación de build:** agregar `Serial.println(__DATE__ " " __TIME__);` en `setup()` para confirmar en cada test que el build corriendo en la placa es el que se acaba de compilar (útil para descartar "código viejo" como causa de un bug).
 - **Bug de diseño: el estado `FULL_PKG` nunca se ejecutaba.** La máquina de estados original tenía un estado extra `FULL_PKG` al que se transicionaba desde `WAIT_LRC` cuando el LRC coincidía. El problema: cambiar la variable `uart_state` no ejecuta el `case` correspondiente — eso solo pasa cuando el `switch` se vuelve a evaluar con el próximo byte. Como el frame termina exactamente en el byte del LRC, no llegaba ningún byte extra para disparar el `case FULL_PKG`, y el mensaje quedaba sin procesar indefinidamente. **Fix:** se eliminó el estado `FULL_PKG` y el procesamiento (`processRcvMsg()` + `resetFSM()`) se movió directo adentro del `if(checkLrc(rcvByte))`, así se ejecuta en el mismo byte que confirma el LRC.
 
+## Debug del bridge ESP32↔Nano (test end-to-end)
+
+- **`stdin` no bloqueante por defecto en ESP-IDF:** sin configuración adicional, la consola USB del ESP32 lee carácter por carácter sin esperar — `fgets` devolvía la línea apenas se quedaba sin bytes en ese instante, así que tipear "ON" mandaba "O" y "N" como dos frames separados. **Fix:** instalar un driver UART real sobre la consola y pasar el VFS a modo bloqueante interrupt-driven (`uart_driver_install` + `uart_vfs_dev_use_driver` + `uart_vfs_dev_port_set_rx/tx_line_endings`), el mismo patrón que usa `protocol_examples_common/stdin_out.c` del propio ESP-IDF. Verificado contra `components/esp_driver_uart/include/driver/uart_vfs.h`, que documenta explícitamente que la lectura no-bloqueante es el modo por defecto.
+- **`uart_read_bytes` no espera una línea completa:** el primer intento de loguear la respuesta del Nano leía lo que hubiera en el buffer de anillo en ese instante, partiendo el ACK en logs separados o mostrando un byte suelto corrupto. **Fix:** `nano_to_stdout_task` ahora acumula byte a byte hasta encontrar `\n`, con un flush de seguridad a los 200ms sin bytes nuevos por si un `\n` se pierde o corrompe (para no quedarse en silencio sin loguear nada).
+- **Cable TX del Nano (A4) flojo:** durante las pruebas, el ESP32 dejó de recibir absolutamente cualquier byte por UART2 (ni siquiera el flush de 200ms disparaba), mientras que el camino de ida (ESP32→Nano) seguía funcionando perfecto — asimetría que apuntaba a un problema físico puntual en la rama de vuelta (Nano A4 → HW-221 B2/A2 → ESP32 G25). Confirmado: era el cable TX del Nano desconectado.
+- **`Ctrl+]` no cierra `idf_monitor` desde la terminal integrada de VS Code:** no es un problema de firmware/`fgets` (verificado en `esp_idf_monitor/base/console_parser.py`: la tecla se intercepta del lado de la PC, antes de tocar el puerto serie). Es VS Code interceptando el atajo. Correr el monitor desde una terminal del sistema (fuera de VS Code) lo resuelve.
+
+## Resultado
+
+**End-to-end validado:** PC (stdin del monitor ESP32) → ESP32 (framing STX/FS/ETX/LRC + UART2) → HW-221 → Nano (parser + LED) → ACK de vuelta por el mismo camino → logueado en el monitor del ESP32. Comandos "ON"/"OFF" funcionando en ambas direcciones de forma confiable.
+
 ## Próximos pasos
 
-- [ ] Cablear el circuito según la tabla de conexiones
+- [x] Cablear el circuito según la tabla de conexiones
 - [x] Revisar en el datasheet del TXS0108E el pin OE (output enable) y confirmar cómo debe quedar habilitado en el módulo HW-221
-- [x] Programar el Arduino Nano: `SoftwareSerial` en D2(RX)/D3(TX) a 9600 baudios, control de LED en D4 según comandos "ON"/"OFF" — probado standalone por USB (protocolo STX/FS/ETX/LRC) con `firmware/arduino-uart-test/send_cmd.py`, funcionando en ambas direcciones (ON/OFF)
-- [ ] Adaptar el código del ESP32 (UART2) para retransmitir lo recibido por USB/UART0 hacia el Arduino, y viceversa
-- [ ] Validar comunicación end-to-end: PC → ESP32 → HW-221 → Arduino → LED
+- [x] Programar el Arduino Nano: `SoftwareSerial` en A4(TX)/A5(RX) a 9600 baudios, control de LED en D4 según comandos "ON"/"OFF" — probado standalone por USB (protocolo STX/FS/ETX/LRC) con `firmware/arduino-uart-test/send_cmd.py`, funcionando en ambas direcciones (ON/OFF)
+- [x] Adaptar el código del ESP32 (UART2) para retransmitir lo recibido por USB/UART0 hacia el Arduino, y viceversa — proyecto nuevo `firmware/esp32_bridge/`
+- [x] Validar comunicación end-to-end: PC → ESP32 → HW-221 → Arduino → LED

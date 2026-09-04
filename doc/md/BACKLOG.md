@@ -15,7 +15,7 @@ _Última actualización: 2026-08-30_
 - [x] **[E02]** Medir niveles de las señales que salen por TX y RX del ESP32 usando el analizador lógico
 - [ ] **[E03]** Averiguar si es necesario un adaptador lógico entre el ESP32 y el driver de los servomotores; si se necesita, conseguir uno
 - [ ] **[E04]** Averiguar cómo comandar el driver de motores vía TX-RX
-- [ ] **[E05]** Probar el código del ESP32 para manejar TX-RX con un Arduino Nano; programar el Arduino Nano para que pueda enviar y recibir mensajes por los pines TX-RX
+- [x] **[E05]** Probar el código del ESP32 para manejar TX-RX con un Arduino Nano; programar el Arduino Nano para que pueda enviar y recibir mensajes por los pines TX-RX
 - [ ] **[E06]** (Depende de E01) Hacer un código en el ESP32 que traduzca los comandos recibidos de la computadora principal en los comandos que precisa el driver de los motores; estudiar el código Python de ejemplo
 - [ ] **[E07]** Evaluar si hace falta realmente desacoplar la gestión del driver de motores hacia el ESP32, o si está bien como está
 - [ ] **[E08]** (Depende de E07) Hacer un nuevo script de Python para delegar la parte de gestión del driver de motores al ESP32
