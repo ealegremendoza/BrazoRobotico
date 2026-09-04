@@ -82,11 +82,38 @@ Traducción del URDF plano (`ros2/urdf/so101/so101_new_calib.urdf`, de R01) al x
 - **No usar `scale="0.01 0.01 0.01"` en los `<mesh>` del xacro.** Ese factor viene copiado del proyecto de referencia del curso (`arduinobot`), pero ahí corrige una malla modelada en otra unidad. Las mallas de SO101 (exportadas con `onshape-to-robot`) ya vienen en metros: verificado midiendo el bounding box de `base_motor_holder_so101_v1.stl` (~-0.02 a 0.07 en cada eje, consistente con una pieza de 5-9cm). Aplicar ese scale las achicaría 100x.
 - **`scale` no afecta el rendimiento** (no cambia la cantidad de triángulos, solo el tamaño geométrico). El total real de la malla del brazo es **322.564 triángulos** (13 STL, el más pesado `wrist_roll_pitch_so101_v2.stl` con ~54.000). El riesgo real de performance en Gazebo es que el URDF reusa la misma malla de alto detalle para `<visual>` y `<collision>` — si hay lag/inestabilidad de física más adelante, la solución es simplificar la geometría de colisión (cajas/cilindros o convex hull), no tocar el scale.
 
+```bash
+cd robotic_arm_ws/src/robotic_arm_description
+mkdir urdf meshes
+# ... escritura de robotic_arm.urdf.xacro y CMakeLists.txt (ver arriba) ...
+colcon build
+```
+**Error repetido:** de nuevo se corrió `colcon build` parado adentro del paquete (`robotic_arm_ws/src/robotic_arm_description/`) en vez de la raíz del workspace — generó `build/`, `install/`, `log/` mezclados con el código fuente del paquete. Se corrigió borrando esos tres directorios (nada trackeado, sin pérdida) y volviendo a correr `colcon build` parado en `robotic_arm_ws/`.
+
+```bash
+cd robotic_arm_ws
+colcon build
+```
+Resultado: `Summary: 1 package finished [1.25s]` — correcto, parado en la raíz del workspace. Con el `install(DIRECTORY meshes urdf ...)` agregado al `CMakeLists.txt`, esta vez `colcon build` también copia las mallas y el xacro a `install/share/robotic_arm_description/`.
+
+```bash
+sudo apt install ros-jazzy-urdf-tutorial
+```
+Instalación del paquete `urdf_tutorial` (trae `display.launch.py`: levanta `robot_state_publisher` + `joint_state_publisher_gui` + RViz para visualizar y mover el URDF interactivamente). Paso previo a Gazebo, para validar visualmente el xacro armado.
+
+```bash
+ros2 launch urdf_tutorial display.launch.py model:=/home/ezequiel/proyecto-final/BrazoRobotico/robotic_arm_ws/src/robotic_arm_description/urdf/robotic_arm.urdf.xacro
+```
+Primer chequeo visual del xacro completo en RViz (`robot_state_publisher` + `joint_state_publisher_gui`). Resultado: **el brazo se ve completo y correcto**, todas las piezas presentes, sin errores de mallas faltantes ni de parseo. Capturas de pantalla tomadas con la herramienta de GNOME (`PrtScn`/`Shift+PrtScn`).
+
+Configuración de RViz guardada en `robotic_arm_ws/src/robotic_arm_description/rviz/display.rviz` (carpeta `rviz/` nueva dentro del paquete, convención estándar de ROS2 para reutilizar la vista desde un launch file más adelante).
+
 ## Próximos pasos
 
 - [x] Crear workspace ROS2 (`robotic_arm_ws/src`)
 - [x] Crear paquete ROS2 para el brazo (`robotic_arm_description`)
 - [x] Escribir `robotic_arm.urdf.xacro` completo (9 links + 8 joints), validado con `xacro` + `check_urdf`
+- [x] Chequeo visual del URDF en RViz (`urdf_tutorial display.launch.py`) — brazo completo, sin errores
 - [ ] Adaptar el URDF para Gazebo (tags `<gazebo>`, `<ros2_control>`, plugin `gazebo_ros2_control`)
 - [ ] Levantar el modelo en Gazebo
 - [ ] (Futuro, si hay problemas de performance/física) Simplificar geometría de `<collision>` en vez de usar las mallas de detalle completo
