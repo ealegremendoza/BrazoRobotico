@@ -43,8 +43,8 @@ graph LR
     end
 
     subgraph NANO["Arduino Nano"]
-        N_D2["D2 (RX, SoftwareSerial)"]
-        N_D3["D3 (TX, SoftwareSerial)"]
+        N_A5["A5 (RX, SoftwareSerial)"]
+        N_A4["A4 (TX, SoftwareSerial)"]
         N_5V["5V"]
         N_GND["GND"]
         N_D4["D4"]
@@ -54,9 +54,9 @@ graph LR
     E_GND1 --- H_GND
     E_G26 -->|TX| H_A1
     H_A1 --> H_B1
-    H_B1 -->|RX| N_D2
+    H_B1 -->|RX| N_A5
 
-    N_D3 -->|TX| H_B2
+    N_A4 -->|TX| H_B2
     H_B2 --> H_A2
     H_A2 -->|RX| E_G25
 
@@ -78,16 +78,17 @@ graph LR
 | G26 (TX, UART2) | A1 |         |                      |
 | G25 (RX, UART2) | A2 |         |                      |
 |       | VB     | 5V           |                      |
-|       | B1     | D2 (RX, SoftwareSerial) |          |
-|       | B2     | D3 (TX, SoftwareSerial) |          |
+|       | B1     | A5 (RX, SoftwareSerial) |          |
+|       | B2     | A4 (TX, SoftwareSerial) |          |
 |       |        | D4           | → resistencia 1kΩ → Ánodo (A) |
 
 ### Decisiones de diseño
 
-- **Mapeo de canales A/B validado:** G26 (TX ESP32) → A1 → B1 → D2 (RX Nano); D3 (TX Nano) → B2 → A2 → G25 (RX ESP32). El shifter no cruza TX/RX por sí mismo (solo traduce voltaje por canal) — el cruce lógico lo da la asignación D2=RX/D3=TX del lado Nano.
+- **Mapeo de canales A/B validado:** G26 (TX ESP32) → A1 → B1 → A5 (RX Nano); A4 (TX Nano) → B2 → A2 → G25 (RX ESP32). El shifter no cruza TX/RX por sí mismo (solo traduce voltaje por canal) — el cruce lógico lo da la asignación A5=RX/A4=TX del lado Nano.
 - **UART2 reasignado de G17/G16 a G25/G26** por comodidad de cableado (pines del otro lado físico de la placa). Verificado que no hay atadura de hardware: el datasheet ESP32-WROOM-32 (sección 4.2.3, pág. 17) confirma que "the pins for UART can be chosen from any GPIOs via the GPIO Matrix" — 16/17 eran solo el default del ejemplo de Kconfig. G25/G26 están dentro del rango válido para TXD/RXD (0-33, Kconfig `env_caps`), no son strapping pins (Tabla 3) ni están reservados para el flash SPI (nota² de la Tabla 2, pág. 9-10). Se descartó G34/G35 para este cambio porque son *input-only* (Type "I" en la Tabla 2) y no sirven para TX.
 - **Asignación real confirmada contra `firmware/uart_test/sdkconfig`: `CONFIG_EXAMPLE_UART_TXD=26`, `CONFIG_EXAMPLE_UART_RXD=25`** — al revés de lo que se había anotado primero en esta bitácora (TX=25/RX=26). Corregido para que la tabla de conexiones coincida con el `menuconfig` real y no induzca a cablear una salida (TX) contra otra salida (TX) en el HW-221, lo cual generaría contención de corriente entre ambos drivers push-pull y podría dañar un GPIO.
-- **D2/D3 con `SoftwareSerial` en el Nano, no D0/D1 (UART hardware):** se dejan D0/D1 libres para conectar el Nano también a la PC y poder ver por monitor serie lo que recibe — mismo criterio que UART0 del ESP32 reservado para el monitor en E01.
+- **A4/A5 con `SoftwareSerial` en el Nano, no D0/D1 (UART hardware):** se dejan D0/D1 libres para conectar el Nano también a la PC y poder ver por monitor serie lo que recibe — mismo criterio que UART0 del ESP32 reservado para el monitor en E01.
+- **A4/A5 reasignados desde D2/D3** por comodidad de ruteo en la protoboard. Verificado: en el Nano, A0-A5 son pines digitales completos (D14-D19) además de analógicos, así que sirven igual para `SoftwareSerial`; A6/A7 quedaron descartados porque en el Nano son *analog-input-only* (sin buffer de salida digital en el chip) y no pueden hacer TX ni RX digital. Aviso a futuro: A4/A5 son por default SDA/SCL (I2C) — si más adelante se agrega una pantalla I2C, va a competir por estos pines.
 - **Baud rate: 9600** para el enlace UART2 (ESP32) ↔ SoftwareSerial (Nano). Se bajó de los 115200 usados en E01 porque `SoftwareSerial` es bit-banging por software y no es confiable a baudios altos. **Pendiente:** UART2 del ESP32 está configurado a 115200 vía Kconfig desde E01 — hay que reconfigurarlo a 9600 (vía `menuconfig`) para que coincida con el Nano, o usar una tercera UART/instancia a 9600 separada de la que se usa con la PC.
 - **LED con resistencia limitadora de 1kΩ en serie** (D4 → resistencia → ánodo, cátodo → GND) — corrige el problema visto en E02 de conectar un LED directo a un pin sin resistencia. Con 5V y una caída típica de LED (~2V), da ~3mA: corriente baja pero segura, LED va a verse tenue. D4 elegido en vez de D9 por comodidad de cableado en la protoboard.
 
