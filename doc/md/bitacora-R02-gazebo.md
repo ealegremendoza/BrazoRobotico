@@ -120,12 +120,22 @@ ros2 launch robotic_arm_description display.launch.py
 ```
 Resultado: brazo visible en RViz, correcto.
 
+### Launch file para Gazebo
+
+Creado `robotic_arm_ws/src/robotic_arm_description/launch/gazebo.launch.py`: `robot_state_publisher` (con `use_sim_time: True`), include del launch de `ros_gz_sim` (`gz_sim.launch.py`, Gazebo Harmonic/Sim — no Gazebo clásico) con mundo vacío, `SetEnvironmentVariable` de `GZ_SIM_RESOURCE_PATH` (padre del share dir, para que Gazebo resuelva las mallas `package://`), spawn del robot vía `ros_gz_sim create` leyendo el tópico `robot_description`, y bridge de `/clock` (`ros_gz_bridge`). Agregados `ros_gz_sim`/`ros_gz_bridge` como `exec_depend` en `package.xml` (ya instalados en el sistema: `ros-jazzy-ros-gz-sim`, `ros-jazzy-ros-gz-bridge`, etc.). Esta vez sin el bug de variable a medio renombrar de la vez pasada — consistente en todo el archivo. Se sacó la variable `ros_distro` sin uso (código muerto).
+
+```bash
+colcon build
+ros2 launch robotic_arm_description gazebo.launch.py
+```
+Resultado: **el brazo se spawnea y se ve bien en Gazebo** (mundo vacío, mallas correctas, sin errores).
+
 ## Próximos pasos
 
 - [x] Crear workspace ROS2 (`robotic_arm_ws/src`)
 - [x] Crear paquete ROS2 para el brazo (`robotic_arm_description`)
 - [x] Escribir `robotic_arm.urdf.xacro` completo (9 links + 8 joints), validado con `xacro` + `check_urdf`
 - [x] Chequeo visual del URDF en RViz (`urdf_tutorial display.launch.py`) — brazo completo, sin errores
-- [ ] Adaptar el URDF para Gazebo (tags `<gazebo>`, `<ros2_control>`, plugin `gazebo_ros2_control`)
-- [ ] Levantar el modelo en Gazebo
+- [x] Levantar el modelo en Gazebo (`gazebo.launch.py`, `ros_gz_sim` + spawn + bridge de `/clock`) — se ve bien
+- [ ] Agregar `<ros2_control>` + plugin `gazebo_ros2_control` (o el bridge equivalente en `ros_gz`) para poder mover los joints desde ROS2
 - [ ] (Futuro, si hay problemas de performance/física) Simplificar geometría de `<collision>` en vez de usar las mallas de detalle completo
