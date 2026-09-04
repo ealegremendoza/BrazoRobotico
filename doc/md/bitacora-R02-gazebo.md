@@ -108,6 +108,18 @@ Primer chequeo visual del xacro completo en RViz (`robot_state_publisher` + `joi
 
 Configuración de RViz guardada en `robotic_arm_ws/src/robotic_arm_description/rviz/display.rviz` (carpeta `rviz/` nueva dentro del paquete, convención estándar de ROS2 para reutilizar la vista desde un launch file más adelante).
 
+### Launch file propio para RViz
+
+Creado `robotic_arm_ws/src/robotic_arm_description/launch/display.launch.py` (basado en el patrón del proyecto de referencia): declara el argumento `model` (default: xacro instalado del paquete), corre `xacro` sobre él vía `Command(...)` para publicar `robot_description`, y levanta `robot_state_publisher` + `joint_state_publisher_gui` + `rviz2` (con `-d` apuntando a `rviz/display.rviz`). Se agregó `install(DIRECTORY meshes urdf launch rviz ...)` al `CMakeLists.txt` y los `exec_depend` correspondientes (`robot_state_publisher`, `urdf`, `joint_state_publisher_gui`, `rviz2`, `xacro`, `ros2launch`) al `package.xml`.
+
+**Bug encontrado y corregido (dos idas y vueltas):** al renombrar la variable `arduinobot_description_dir` → `robotic_arm_description_dir` (nombre pegado del proyecto de referencia), quedó una referencia sin actualizar en la línea del nodo de RViz (`arguments=["-d", os.path.join(arduinobot_description_dir, ...)]`) — hubiera tirado `NameError` al ejecutar `generate_launch_description()`. Detectado leyendo el archivo línea por línea (un primer intento de verificación con `ros2 launch ... --show-args` dio falso negativo por correr contra la copia vieja en `install/`, no contra el `src/` editado). Corregido y confirmado con:
+
+```bash
+colcon build
+ros2 launch robotic_arm_description display.launch.py
+```
+Resultado: brazo visible en RViz, correcto.
+
 ## Próximos pasos
 
 - [x] Crear workspace ROS2 (`robotic_arm_ws/src`)
