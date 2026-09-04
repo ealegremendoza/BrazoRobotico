@@ -1,5 +1,5 @@
 #include <SoftwareSerial.h>
-#include <string.h> 
+#include <string.h>
 #define TX_PIN 18 // TX=A4
 #define RX_PIN 19 // RX=A5
 #define LED 4
@@ -7,6 +7,16 @@
 #define STX 0x02
 #define ETX 0x03
 #define FS 0x1c
+
+// Uncomment to read commands from Serial (USB, via send_cmd.py) instead of
+// Serial1 (SoftwareSerial from the ESP32 bridge) -- standalone debug mode.
+// #define DEBUG_STANDALONE_USB
+
+#ifdef DEBUG_STANDALONE_USB
+  #define CMD_SERIAL Serial
+#else
+  #define CMD_SERIAL Serial1
+#endif
 
 typedef enum {
   WAIT_STX,
@@ -34,8 +44,8 @@ void setup() {
 }
 
 void loop() {
-  while (Serial.available() > 0) {
-    rcvByte = Serial.read();
+  while (CMD_SERIAL.available() > 0) {
+    rcvByte = CMD_SERIAL.read();
     switch(uart_state){
       case WAIT_STX: {
         if(rcvByte == STX){
@@ -127,10 +137,13 @@ void processCommand(const char* msg){
   if(strcmp(msg, "ON")==0) {
     Serial.println("LED ON.");
     digitalWrite(LED, HIGH);
+    Serial1.println("ACK:ON");
   } else if (strcmp(msg, "OFF")==0){
     Serial.println("LED OFF.");
     digitalWrite(LED, LOW);
+    Serial1.println("ACK:OFF");
   } else {
     Serial.println("Codigo incorrecto. Reintente.");
+    Serial1.println("NACK:UNKNOWN");
   }
 }
