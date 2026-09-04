@@ -1,6 +1,7 @@
 #include <SoftwareSerial.h>
 #include <string.h> 
-
+#define TX_PIN 18 // TX=A4
+#define RX_PIN 19 // RX=A5
 #define LED 4
 #define BUFFER_LEN 32
 #define STX 0x02
@@ -17,7 +18,7 @@ typedef enum {
 
 
 uart_state_e uart_state = WAIT_STX;
-SoftwareSerial Serial1(2, 3); // RX, TX
+SoftwareSerial Serial1(RX_PIN, TX_PIN); // RX, TX
 char rcvByte = 0;
 char rcvBuffer[BUFFER_LEN] = {0};
 uint32_t rcvBufferOffset = 0;
