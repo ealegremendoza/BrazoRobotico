@@ -130,6 +130,61 @@ ros2 launch robotic_arm_description gazebo.launch.py
 ```
 Resultado: **el brazo se spawnea y se ve bien en Gazebo** (mundo vacío, mallas correctas, sin errores).
 
+## `ros2_control` + control de joints en Gazebo
+
+Concepto: `ros2_control` abstrae el hardware (real o simulado) detrás de una interfaz uniforme — un `controller_manager` corre controladores que comandan/leen joints a través de `command_interface`/`state_interface`, sin saber si atrás hay un motor real o Gazebo. En Gazebo, esa "hardware" es el plugin `gz_ros2_control` (Gazebo Sim/Harmonic — no el `gazebo_ros2_control` de Gazebo clásico).
+
+Estructura elegida, siguiendo el patrón del proyecto de referencia (separar en archivos xacro incluidos desde `robotic_arm.urdf.xacro` en vez de todo en un solo archivo):
+- `robotic_arm_gazebo.xacro`: tag `<gazebo>` con el `<plugin>` `gz_ros2_control::GazeboSimROS2ControlPlugin`, apuntando a los parámetros del controller_manager.
+- `robotic_arm_ros2_control.xacro`: tag `<ros2_control>` con `<hardware><plugin>gz_ros2_control/GazeboSimSystem</plugin></hardware>` y, por joint, `<command_interface>`/`<state_interface>`.
+- Paquete nuevo **`robotic_arm_controller`** (mirando al `arduinobot_controller` de referencia): `config/robotic_arm_controllers.yaml` con la config del `controller_manager`.
+
+**Errores encontrados en el camino:**
+- Paquete `robotic_arm_controller` creado por error **fuera de `src/`** (directo en `robotic_arm_ws/`) — corregido moviéndolo a `robotic_arm_ws/src/robotic_arm_controller`.
+- Nombre de archivo `robotic_arm_ros2_controll.xacro` (doble `l`) no coincidía con el `filename` del `xacro:include` (`robotic_arm_ros2_control.xacro`, una sola `l`) — hubiera fallado al procesar. Corregido renombrando el archivo.
+- Como el `include` usa `$(find robotic_arm_description)/...`, xacro necesita el paquete resuelto vía `ament_index` — hace falta tener el workspace *instalado* (`colcon build` + sourcear `install/setup.zsh`), no alcanza con tener el archivo en `src/`.
+
+**`robotic_arm_controllers.yaml`** (completado): `joint_state_broadcaster` (publica `/joint_states`), `arm_controller` (`JointTrajectoryController`, los 5 joints del brazo: `shoulder_pan`, `shoulder_lift`, `elbow_flex`, `wrist_flex`, `wrist_roll`) y `gripper_controller` (`JointTrajectoryController`, joint `gripper`).
+
+**Decisión: `JointTrajectoryController` para el gripper, no `ForwardCommandController`.** El curso de referencia deja comentada la opción `ForwardCommandController` (más simple: aplica un valor directo, sin interpolar, sin action interface) y usa `JointTrajectoryController` para el gripper también — misma interfaz (action `FollowJointTrajectory` con feedback) para brazo y gripper. Ventaja: uniformidad si más adelante se integra MoveIt2 o se necesita esperar/coordinar el cierre del gripper con el resto del movimiento. `ForwardCommandController` hubiera sido más liviano para un gripper simple abrir/cerrar, pero se prioriza la interfaz uniforme.
+
+**Pendiente:** agregar `install(DIRECTORY config DESTINATION share/${PROJECT_NAME})` al `CMakeLists.txt` de `robotic_arm_controller` (todavía no lo tiene) para que `$(find robotic_arm_controller)/config/robotic_arm_controllers.yaml` resuelva tras el build.
+
+**Bug del `<xacro>` suelto:** apareció en los dos archivos nuevos (resto de sacar el `xacro:if`/`xacro:unless` del `is_ignition`). Corregido en `robotic_arm_gazebo.xacro` restaurando el patrón completo `xacro:if value="$(arg is_ignition)"` / `xacro:unless` (con `<xacro:arg name="is_ignition" default="false"/>` agregado al xacro principal — por defecto usa `gz_ros2_control`, la rama que corresponde a Jazzy) y, con el mismo criterio, en `robotic_arm_ros2_control.xacro` para el bloque `<hardware>`.
+
+**Joints de `robotic_arm_ros2_control.xacro` completados** (a pedido del usuario, patrón ya entendido): los 6 joints revolute (`shoulder_pan`, `shoulder_lift`, `elbow_flex`, `wrist_flex`, `wrist_roll`, `gripper`), cada uno con `<command_interface name="position">` (min/max = límites reales de calibración, los mismos del URDF principal) y `<state_interface name="position"/>`. Se sacó la propiedad `PI` que había quedado sin usar. Verificado con `colcon build` + `xacro` (`exit: 0`, el `<gazebo>` y el `<ros2_control>` completo aparecen en el URDF final) + `check_urdf` (árbol cinemático intacto).
+
+### Primer arranque con `ros2_control` completo
+
+```bash
+colcon build
+ros2 launch robotic_arm_description gazebo.launch.py
+```
+Log revisado línea por línea. **Éxito:** `gz_ros_control` carga `controller_manager`, se suscribe a `/robot_description`, registra los 6 joints (`shoulder_pan`, `shoulder_lift`, `elbow_flex`, `wrist_flex`, `wrist_roll`, `gripper`) con `State: position` / `Command: position` (coincide con `robotic_arm_ros2_control.xacro`), inicializa y **activa** el hardware `RobotSystem` sin errores. Warnings esperados/benignos: joint fijo `virtual_joint` se salta (correcto, no es actuable), warning de "Executor not available"/"statistics" (normales en este plugin), warning de `update_rate` 10Hz vs paso de física 1000Hz (esperado, el control corre más lento que la física a propósito).
+
+**Hallazgo real (no de `ros2_control`, del motor de física `dartsim`):** en el log aparece repetido para *todos* los links: `Mesh construction from an SDF has not been implemented yet for dartsim` + `The geometry element of collision [<link>_collision] couldn't be created`. `dartsim` no puede construir la geometría de `<collision>` directo desde malla STL — **el brazo ahora mismo no tiene colisión física en ningún link** (se ve bien porque el `<visual>` sí renderiza, pero no va a interactuar físicamente con nada). Esto confirma/adelanta el pendiente "Futuro" ya anotado (simplificar `<collision>` a formas primitivas) — pasa de ser hipotético a ser un problema real y actual.
+
+**Chequeo cruzado con el proyecto de referencia:** se corrió `ros2 launch arduinobot_description gazebo.launch.py` sobre el `arduinobot_ws` del curso (Section5_Control) para confirmar si el problema de colisión con dartsim era general o específico de nuestro URDF. Mismo resultado exacto: `Mesh construction... has not been implemented yet for dartsim` + `The geometry element of collision [...] couldn't be created` para todos sus links. **Confirma que es una limitación conocida de `dartsim`, no un error de nuestro proyecto.** Bonus: el log de referencia también muestra que dartsim no soporta joints "mimic" (`[Err] ... physics engine does not support mimic constraints`) — no nos afecta, nuestro diseño no usa mimic joints.
+
+### Launch de los controllers (`spawner`)
+
+Creado `robotic_arm_controller/launch/controller.launch.py` (patrón del curso adaptado): arg `is_sim` (default `True`) que en simulación evita levantar `robot_state_publisher`/`ros2_control_node` propios (ya los provee el plugin `gz_ros2_control` dentro de Gazebo), más 3 `Node` de `controller_manager`/`spawner` (`joint_state_broadcaster`, `arm_controller`, `gripper_controller`). Agregado `launch` al `install(DIRECTORY ...)` del `CMakeLists.txt` y los `exec_depend` (`robotic_arm_description`, `robot_state_publisher`, `controller_manager`, `xacro`, `ros2launch`) al `package.xml`.
+
+```bash
+# Terminal 1
+ros2 launch robotic_arm_description gazebo.launch.py
+# Terminal 2
+ros2 launch robotic_arm_controller controller.launch.py
+```
+**Resultado: éxito total.** Los 3 controladores se cargaron y activaron sin errores contra el `controller_manager` de Gazebo: `Loaded` → `Configured and activated` para `gripper_controller`, `joint_state_broadcaster` y `arm_controller`. Cada `spawner` termina limpio después de activar su controlador (comportamiento esperado, es un script de un solo uso). **El brazo queda completamente controlable desde ROS2** — objetivo central de R02 cumplido.
+
+### Primer movimiento real comandado
+
+```bash
+ros2 action send_goal /arm_controller/follow_joint_trajectory control_msgs/action/FollowJointTrajectory "{trajectory: {joint_names: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll], points: [{positions: [0.3, 0.0, 0.0, 0.0, 0.0], time_from_start: {sec: 3}}]}}"
+```
+Trayectoria mandada al action `FollowJointTrajectory` de `arm_controller` (solo `shoulder_pan` a 0.3 rad, resto en 0, en 3s), con Gazebo + `gazebo.launch.py` + `controller.launch.py` corriendo. **Resultado: `Goal successfully reached!`, status `SUCCEEDED`.** El brazo se movió en Gazebo tal cual lo pedido. Cadena completa validada: URDF (xacro) → spawn en Gazebo → `ros2_control` activado → controllers spawneados → movimiento real comandado desde ROS2.
+
 ## Próximos pasos
 
 - [x] Crear workspace ROS2 (`robotic_arm_ws/src`)
@@ -137,5 +192,10 @@ Resultado: **el brazo se spawnea y se ve bien en Gazebo** (mundo vacío, mallas 
 - [x] Escribir `robotic_arm.urdf.xacro` completo (9 links + 8 joints), validado con `xacro` + `check_urdf`
 - [x] Chequeo visual del URDF en RViz (`urdf_tutorial display.launch.py`) — brazo completo, sin errores
 - [x] Levantar el modelo en Gazebo (`gazebo.launch.py`, `ros_gz_sim` + spawn + bridge de `/clock`) — se ve bien
-- [ ] Agregar `<ros2_control>` + plugin `gazebo_ros2_control` (o el bridge equivalente en `ros_gz`) para poder mover los joints desde ROS2
-- [ ] (Futuro, si hay problemas de performance/física) Simplificar geometría de `<collision>` en vez de usar las mallas de detalle completo
+- [x] Escribir `robotic_arm_controllers.yaml` (joint_state_broadcaster + arm_controller + gripper_controller)
+- [x] Completar `robotic_arm_ros2_control.xacro` (6 joints con command/state interface) y `robotic_arm_gazebo.xacro` (plugin bien formado, sin el wrapper `<xacro>` suelto)
+- [x] Agregar `install(DIRECTORY config ...)` al `CMakeLists.txt` de `robotic_arm_controller`
+- [x] Confirmar que `ros2_control` levanta bien en Gazebo (`controller_manager` activo, hardware `RobotSystem` inicializado, 6 joints registrados) — revisado log completo
+- [x] Crear el launch que levante los controllers (`controller.launch.py`) — los 3 controladores se activan sin errores
+- [x] Probar mover el brazo mandando una trayectoria real — `Goal successfully reached!`, se movió correctamente en Gazebo
+- [ ] **Confirmado, no solo hipotético:** reemplazar la geometría de `<collision>` (mallas STL de detalle completo) por formas primitivas (cajas/cilindros) — `dartsim` no puede construir colisión desde STL, el brazo no tiene colisión física en ningún link ahora mismo

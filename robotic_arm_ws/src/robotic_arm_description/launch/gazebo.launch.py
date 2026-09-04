@@ -12,29 +12,33 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
-    # Get the package directory
-    robotic_arm_description_dir = get_package_share_directory("robotic_arm_description")
+    robotic_arm_description = get_package_share_directory("robotic_arm_description")
 
-    # Declare the launch argument for the robot model
     model_arg = DeclareLaunchArgument(name="model", default_value=os.path.join(
-                                        robotic_arm_description_dir, "urdf", "robotic_arm.urdf.xacro"
+                                        robotic_arm_description, "urdf", "robotic_arm.urdf.xacro"
                                         ),
                                       description="Absolute path to robot urdf file"
     )
 
-    # Set the GZ_SIM_RESOURCE_PATH environment variable to include the parent directory of the robotic_arm_description package
     gazebo_resource_path = SetEnvironmentVariable(
         name="GZ_SIM_RESOURCE_PATH",
         value=[
-            str(Path(robotic_arm_description_dir).parent.resolve())
+            str(Path(robotic_arm_description).parent.resolve())
             ]
         )
+    
+    ros_distro = os.environ["ROS_DISTRO"]
+    is_ignition = "True" if ros_distro == "humble" else "False"
 
+    robot_description = ParameterValue(Command([
+            "xacro ",
+            LaunchConfiguration("model"),
+            " is_ignition:=",
+            is_ignition
+        ]),
+        value_type=str
+    )
 
-    # Generate the robot description parameter by processing the xacro file
-    robot_description = ParameterValue(Command(["xacro ", LaunchConfiguration("model")]),
-                                       value_type=str)
-    # Launch the robot_state_publisher node with the robot description and use_sim_time parameter
     robot_state_publisher_node = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
@@ -42,25 +46,23 @@ def generate_launch_description():
                      "use_sim_time": True}]
     )
 
-    # Launch gazebo with the empty world
     gazebo = IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([os.path.join(
                     get_package_share_directory("ros_gz_sim"), "launch"), "/gz_sim.launch.py"]),
                 launch_arguments=[
-                    ("gz_args", [" -v 4 -r empty.sdf "]
+                    ("gz_args", [" -v 4 -r empty.sdf"]
                     )
                 ]
              )
-    # Spawn the robot in Gazebo
+
     gz_spawn_entity = Node(
         package="ros_gz_sim",
         executable="create",
         output="screen",
         arguments=["-topic", "robot_description",
-                   "-name", "robotic_arm"],
+                   "-name", "robotic_arm",],
     )
 
-    # Bridge the /clock topic between ROS 2 and Gazebo
     gz_ros2_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
@@ -69,7 +71,6 @@ def generate_launch_description():
         ]
     )
 
-    # Return the launch description
     return LaunchDescription([
         model_arg,
         gazebo_resource_path,
