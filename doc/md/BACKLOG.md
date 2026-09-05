@@ -25,6 +25,7 @@ _Última actualización: 2026-08-30_
 - [x] **[R01]** Averiguar si el proyecto armso-101 (en el cual está basado mi proyecto) tiene un URDF para simular con Gazebo ROS2 — ver `doc/md/bitacora-R01-urdf.md`
 - [x] **[R02]** (Depende de R01) Si tiene URDF: tratar de levantar el modelo en Gazebo. Si no tiene: ver cómo generarlo usando los STL disponibles — ver `doc/md/bitacora-R02-gazebo.md`. Pendiente no bloqueante: geometría de `<collision>` (STL → primitivas, `dartsim` no soporta colisión desde malla)
 - [ ] **[R03]** Definir los nodos que se usarán para manejar el brazo robótico, basándose en los mismos vistos en el curso de manejo de brazo robótico con ROS2
+- [ ] **[R04]** Investigar/implementar mitigación de backlash mecánico de los servos STS3215 (compensación por software al invertir dirección, ya que el encoder está en el eje del motor y no en el eslabón de salida)
 
 ## 📌 Otros
 
