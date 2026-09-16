@@ -14,7 +14,7 @@ _Última actualización: 2026-08-30_
 - [x] **[E01]** Programar ESP32 para poder enviar y recibir mensajes por puerto serie a través de los pines TX-RX
 - [x] **[E02]** Medir niveles de las señales que salen por TX y RX del ESP32 usando el analizador lógico
 - [x] **[E03]** Averiguar si es necesario un adaptador lógico entre el ESP32 y el driver de los servomotores; si se necesita, conseguir uno — ver `doc/md/bitacora-E03-adaptador-logico.md` (no hace falta, ambos son 3.3V)
-- [ ] **[E04]** Averiguar cómo comandar el driver de motores vía TX-RX
+- [x] **[E04]** Averiguar cómo comandar el driver de motores vía TX-RX — ver `doc/md/bitacora-E04-protocolo-driver.md` (protocolo Feetech/Dynamixel-like, header 0xFF 0xFF + ID + length + instrucción + parámetros + checksum)
 - [x] **[E05]** Probar el código del ESP32 para manejar TX-RX con un Arduino Nano; programar el Arduino Nano para que pueda enviar y recibir mensajes por los pines TX-RX
 - [ ] **[E06]** (Depende de E01) Hacer un código en el ESP32 que traduzca los comandos recibidos de la computadora principal en los comandos que precisa el driver de los motores; estudiar el código Python de ejemplo
 - [ ] **[E07]** Evaluar si hace falta realmente desacoplar la gestión del driver de motores hacia el ESP32, o si está bien como está
