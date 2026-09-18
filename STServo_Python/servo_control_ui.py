@@ -45,6 +45,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import math
 import os
 import queue
 import sys
@@ -104,6 +105,11 @@ SPEED_MAX = 3400
 ACC_MIN = 1
 ACC_MAX = 50
 STEPS_PER_REV = 4096
+# Counts reported for the calibrated zero pose (see calibrate-arm.py
+# DEFAULT_TARGET). The per-servo homing_offset is applied inside the servo's
+# own EEPROM, so raw position readback is already relative to this value for
+# every joint.
+ZERO_COUNTS = 2048
 
 POLL_INTERVAL_MS = 30      # feedback readback cadence (~33 Hz)
 WRITE_INTERVAL_MS = 20     # minimum gap between bus writes (~50 Hz max)
@@ -170,6 +176,11 @@ def _load_trajectories():
             continue
         trajectories[name] = item
     return trajectories
+
+
+def counts_to_rad(counts, zero=ZERO_COUNTS):
+    """Convert raw encoder counts to radians relative to the calibrated zero."""
+    return (counts - zero) * (2 * math.pi / STEPS_PER_REV)
 
 
 class ServoRow:
@@ -639,6 +650,76 @@ class ServoControlApp:
             )
         self._row_by_id = {row.servo_id: row for row in self.rows}
 
+        # Joint-limit measurement helper: pick a servo, read its live
+        # position converted to radians relative to the calibrated zero
+        # (ZERO_COUNTS), and mark the min/max encoder counts observed by
+        # hand (e.g. right before a mechanical collision) to get a ready
+        # <limit lower=".." upper=".."> line for the URDF.
+        measure = ttk.LabelFrame(root, text="Medicion de limites (URDF)", padding=(8, 4))
+        measure.grid(row=4, column=0, sticky="ew", padx=8, pady=(0, 8))
+        measure.columnconfigure(5, weight=1)
+
+        ttk.Label(measure, text="Servo:").grid(row=0, column=0, sticky="w")
+        self._measure_servo_choices = [
+            "%d - %s" % (sid, SERVO_NAMES.get(sid, "")) for sid in SERVO_IDS
+        ]
+        self.measure_servo_var = tk.StringVar()
+        self.measure_servo_combo = ttk.Combobox(
+            measure,
+            textvariable=self.measure_servo_var,
+            state="readonly",
+            values=self._measure_servo_choices,
+            width=18,
+        )
+        self.measure_servo_combo.grid(row=0, column=1, sticky="w", padx=6)
+        self.measure_servo_combo.current(0)
+        self.measure_servo_combo.bind(
+            "<<ComboboxSelected>>", lambda e: self._update_measure_reading()
+        )
+
+        self.measure_reading_label = ttk.Label(measure, text="Counts: -   Angulo: -")
+        self.measure_reading_label.grid(
+            row=0, column=2, columnspan=3, sticky="w", padx=(12, 0)
+        )
+
+        self.mark_min_btn = ttk.Button(
+            measure,
+            text="Marcar minimo",
+            command=lambda: self._mark_measure_limit("min"),
+            state="disabled",
+        )
+        self.mark_min_btn.grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self.mark_max_btn = ttk.Button(
+            measure,
+            text="Marcar maximo",
+            command=lambda: self._mark_measure_limit("max"),
+            state="disabled",
+        )
+        self.mark_max_btn.grid(
+            row=1, column=2, sticky="w", pady=(4, 0), padx=(6, 0)
+        )
+        self.mark_reset_btn = ttk.Button(
+            measure, text="Reset", command=self._reset_measure_limits
+        )
+        self.mark_reset_btn.grid(row=1, column=3, sticky="w", pady=(4, 0), padx=(6, 0))
+
+        self.measure_result_label = ttk.Label(
+            measure, text="Minimo: -   Maximo: -", foreground="#6b7280"
+        )
+        self.measure_result_label.grid(
+            row=2, column=0, columnspan=6, sticky="w", pady=(4, 0)
+        )
+
+        self.measure_xacro_label = ttk.Label(
+            measure, text="", font=("TkFixedFont", 9), foreground=COLOR_CONNECTED
+        )
+        self.measure_xacro_label.grid(
+            row=3, column=0, columnspan=6, sticky="w", pady=(2, 0)
+        )
+
+        self._measure_min_counts = None
+        self._measure_max_counts = None
+
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ------------------------------------------------------------------ connection
@@ -660,6 +741,8 @@ class ServoControlApp:
         self.apply_btn.state(["!disabled"])
         self.free_btn.state(["!disabled"])
         self.port_entry.state(["disabled"])
+        self.mark_min_btn.state(["!disabled"])
+        self.mark_max_btn.state(["!disabled"])
         self._apply_move_params()
         self._update_trajectory_ui()
         self._set_status("Connecting...", True)
@@ -686,9 +769,12 @@ class ServoControlApp:
         self.apply_btn.state(["disabled"])
         self.free_btn.state(["disabled"])
         self.port_entry.state(["!disabled"])
+        self.mark_min_btn.state(["disabled"])
+        self.mark_max_btn.state(["disabled"])
         self._reset_free_state()
         for row in self.rows:
             row.set_feedback(None, None, False)
+        self._update_measure_reading()
         self._cancel_trajectory_activity()
         self._set_status("Disconnected", False)
 
@@ -713,9 +799,12 @@ class ServoControlApp:
         self.apply_btn.state(["disabled"])
         self.free_btn.state(["disabled"])
         self.port_entry.state(["!disabled"])
+        self.mark_min_btn.state(["disabled"])
+        self.mark_max_btn.state(["disabled"])
         self._reset_free_state()
         for row in self.rows:
             row.set_feedback(None, None, False)
+        self._update_measure_reading()
         self._cancel_trajectory_activity()
         self._set_status(message, was_connected)
 
@@ -746,6 +835,7 @@ class ServoControlApp:
                             row.set_feedback(position, speed, True)
                         else:
                             row.set_feedback(None, None, False)
+                    self._update_measure_reading()
                     if self._recording:
                         self._sample_trajectory()
         except queue.Empty:
@@ -1238,6 +1328,91 @@ class ServoControlApp:
         if self._playing:
             self._cancel_playback()
         self._update_trajectory_ui()
+
+    # ------------------------------------------------------------------ limit measurement
+
+    def _measure_selected_id(self):
+        """Return the SERVO_IDS entry matching the combo's current selection."""
+        index = self.measure_servo_combo.current()
+        if index < 0 or index >= len(SERVO_IDS):
+            return None
+        return SERVO_IDS[index]
+
+    def _update_measure_reading(self):
+        """Refresh the live counts/radians readout for the selected servo."""
+        servo_id = self._measure_selected_id()
+        row = self._row_by_id.get(servo_id) if servo_id is not None else None
+        position = row.record_position() if row is not None else None
+        if position is None:
+            self.measure_reading_label.config(text="Counts: -   Angulo: -")
+            return
+        rad = counts_to_rad(position)
+        self.measure_reading_label.config(
+            text="Counts: %d   Angulo: %.4f rad (%.1f deg)"
+            % (position, rad, math.degrees(rad))
+        )
+
+    def _mark_measure_limit(self, kind):
+        """Capture the selected servo's current position as min or max."""
+        servo_id = self._measure_selected_id()
+        row = self._row_by_id.get(servo_id) if servo_id is not None else None
+        position = row.record_position() if row is not None else None
+        if position is None:
+            self._flash_status("Medicion: servo sin posicion (desconectado?)", False)
+            return
+        if kind == "min":
+            self._measure_min_counts = position
+        else:
+            self._measure_max_counts = position
+        rad = counts_to_rad(position)
+        print(
+            "[MEDICION] %s (id=%d) %s: counts=%d rad=%.5f deg=%.2f"
+            % (
+                SERVO_NAMES.get(servo_id, "servo_%d" % servo_id),
+                servo_id,
+                kind,
+                position,
+                rad,
+                math.degrees(rad),
+            ),
+            flush=True,
+        )
+        self._refresh_measure_result()
+
+    def _reset_measure_limits(self):
+        self._measure_min_counts = None
+        self._measure_max_counts = None
+        self._refresh_measure_result()
+
+    def _refresh_measure_result(self):
+        min_c = self._measure_min_counts
+        max_c = self._measure_max_counts
+
+        def fmt(counts):
+            if counts is None:
+                return "-"
+            rad = counts_to_rad(counts)
+            return "%d (%.4f rad)" % (counts, rad)
+
+        self.measure_result_label.config(
+            text="Minimo: %s   Maximo: %s" % (fmt(min_c), fmt(max_c))
+        )
+
+        if min_c is None or max_c is None:
+            self.measure_xacro_label.config(text="")
+            return
+
+        rad_a = counts_to_rad(min_c)
+        rad_b = counts_to_rad(max_c)
+        lower, upper = (rad_a, rad_b) if rad_a <= rad_b else (rad_b, rad_a)
+        xacro_line = '<limit lower="%.5f" upper="%.5f" .../>' % (lower, upper)
+        self.measure_xacro_label.config(text=xacro_line)
+        servo_id = self._measure_selected_id()
+        print(
+            "[MEDICION] %s (id=%s) -> %s"
+            % (SERVO_NAMES.get(servo_id, "servo_%s" % servo_id), servo_id, xacro_line),
+            flush=True,
+        )
 
     # ------------------------------------------------------------------ ui helpers
 

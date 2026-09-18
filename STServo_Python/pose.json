@@ -1,11 +1,11 @@
 {
-  "recorded_at": "2026-08-10T20:16:51",
+  "recorded_at": "2026-09-18T02:12:41",
   "servos": {
-    "gripper": 1402,
-    "wrist_roll": 3064,
-    "wrist_flex": 940,
-    "elbow_flex": 3080,
-    "shoulder_lift": 877,
-    "shoulder_pan": 1982
+    "gripper": 1384,
+    "wrist_roll": 822,
+    "wrist_flex": 900,
+    "elbow_flex": 3079,
+    "shoulder_lift": 871,
+    "shoulder_pan": 1995
   }
 }
