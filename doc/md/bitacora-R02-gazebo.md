@@ -203,6 +203,96 @@ ros2 launch robotic_arm_controller slider_controller.launch.py
 ```
 **Resultado: funciona.** Ventana de 6 sliders, moviéndolos el brazo reacciona en vivo en Gazebo.
 
+## Cómo levantar la simulación completa (2 terminales)
+
+Con Terminator (split de terminal), parado en `robotic_arm_ws/`:
+
+1. **Terminal 1** — build + Gazebo:
+
+```bash
+ros_jazzy
+colcon build
+. install/setup.zsh
+ros2 launch robotic_arm_description gazebo.launch.py
+```
+
+`colcon build` libera la terminal al terminar, así que se puede encadenar el `launch` en la misma. Ojo: hace falta sourcear `install/setup.zsh` después del build (`ros_jazzy` solo trae el ROS2 base, no los paquetes del workspace recién compilados). Con Gazebo abierto, configurar las physics del world en `0.01` (step size) en vez de `0.001`, para que la simulación fluya mejor.
+
+2. **Terminal 2** — sliders:
+
+```bash
+ros_jazzy
+. install/setup.zsh
+ros2 launch robotic_arm_controller slider_controller.launch.py
+```
+
+No hace falta correr `controller.launch.py` en una terminal aparte: `slider_controller.launch.py` lo incluye como primer paso (`IncludeLaunchDescription` de `controller.launch.py` al principio del archivo), así que ya levanta los 3 controllers (`joint_state_broadcaster`, `arm_controller`, `gripper_controller`) antes de arrancar el nodo de sliders.
+
+### Verificación: `ros2 control list_hardware_interfaces`
+
+Con la simulación corriendo (terminales de arriba activas), en una terminal nueva:
+
+```bash
+ros_jazzy
+. install/setup.zsh
+ros2 control list_hardware_interfaces
+```
+
+```
+[INFO] [1789673772.174408439] [_ros2cli_27753]: waiting for service /controller_manager/list_hardware_interfaces to become available...
+command interfaces
+    elbow_flex/position [available] [claimed]
+    gripper/position [available] [claimed]
+    shoulder_lift/position [available] [claimed]
+    shoulder_pan/position [available] [claimed]
+    wrist_flex/position [available] [claimed]
+    wrist_roll/position [available] [claimed]
+state interfaces
+    elbow_flex/position
+    gripper/position
+    shoulder_lift/position
+    shoulder_pan/position
+    wrist_flex/position
+    wrist_roll/position
+```
+
+Este comando le pregunta al `controller_manager` qué interfaces de hardware tiene registradas (en este caso, expuestas por el plugin `gz_ros2_control` que hace de "hardware" dentro de Gazebo). Dos categorías:
+
+- **command interfaces**: por donde un controller *escribe* un comando al joint (acá, posición). `[available]` significa que la interfaz existe; `[claimed]` significa que ya hay un controller que la tomó de forma exclusiva — en este caso `arm_controller` y `gripper_controller`, que son los que efectivamente mueven el brazo cuando se usan los sliders.
+- **state interfaces**: por donde se *lee* el estado actual del joint. No aparecen como `[claimed]` porque leer no es exclusivo — varios nodos pueden leer la misma interfaz al mismo tiempo (acá la lee `joint_state_broadcaster` para publicar `/joint_states`).
+
+Solo aparecen los 6 joints actuables (5 del brazo + `gripper`); el `virtual_joint` (fijo, `world`→`base_link`) no tiene interfaces porque no es actuable. Sirve como chequeo de salud: si todas las interfaces de comando aparecen `[claimed]`, confirma que `ros2_control` está arriba y los controllers tienen tomado el hardware antes de probar movimiento.
+
+### Verificación: `ros2 control list_hardware_components`
+
+```bash
+ros2 control list_hardware_components
+```
+
+```
+Hardware Component 1
+    name: RobotSystem
+    type: 
+    plugin name: 
+    state: id=3 label=active
+    read/write rate: 0 Hz
+    is_async: False
+    command interfaces
+        shoulder_pan/position [available] [claimed]
+        shoulder_lift/position [available] [claimed]
+        elbow_flex/position [available] [claimed]
+        wrist_flex/position [available] [claimed]
+        wrist_roll/position [available] [claimed]
+        gripper/position [available] [claimed]
+```
+
+Complementa al comando anterior, pero mirando desde el otro lado: en vez de listar las interfaces sueltas, agrupa todo por **componente de hardware**. Acá aparece uno solo, `RobotSystem`, que es el nombre que le dimos en `<hardware><plugin>` dentro de `robotic_arm_ros2_control.xacro` (la implementación real detrás es `gz_ros2_control/GazeboSimSystem`, el plugin de Gazebo Sim actuando como "hardware" simulado).
+
+- **`state: id=3 label=active`**: el ciclo de vida de `ros2_control` (basado en `rclcpp_lifecycle`) pasó por `unconfigured → inactive → active`; `active` es el único estado en el que el hardware realmente lee/escribe. Si algo falla al iniciar Gazebo, esto se queda en `inactive` o `unconfigured` y ningún joint responde.
+- **`read/write rate: 0 Hz`**: estadística que no se está poblando para este hardware simulado (el ritmo real lo marca el `update_rate` del `controller_manager`, no una lectura propia del plugin) — no es un error, es una particularidad de `gz_ros2_control`.
+- **`is_async: False`**: el hardware lee/escribe de forma síncrona con el ciclo del `controller_manager`, no en un hilo aparte.
+- Repite las mismas 6 command interfaces `[available] [claimed]` que el comando anterior, ahora como "propiedad" de este componente puntual — útil cuando hay más de un hardware component y hace falta saber cuál tiene tomada cada interfaz.
+
 ## Próximos pasos
 
 - [x] Crear workspace ROS2 (`robotic_arm_ws/src`)
