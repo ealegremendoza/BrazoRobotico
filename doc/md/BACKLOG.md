@@ -1,6 +1,6 @@
 # Backlog de Tareas
 
-_Última actualización: 2026-08-30_
+_Última actualización: 2026-09-18_
 
 ## Cómo usar este documento
 - Agregar tareas nuevas bajo la categoría correspondiente (o crear una nueva sección si hace falta).
@@ -27,6 +27,7 @@ _Última actualización: 2026-08-30_
 - [ ] **[R03]** Definir los nodos que se usarán para manejar el brazo robótico, basándose en los mismos vistos en el curso de manejo de brazo robótico con ROS2
 - [ ] **[R04]** Investigar/implementar mitigación de backlash mecánico de los servos STS3215 (compensación por software al invertir dirección, ya que el encoder está en el eje del motor y no en el eslabón de salida)
 - [x] **[R05]** Implementar MoveIt2 para planificación de movimiento del brazo — referencia: `/home/ezequiel/cursos/Robotics-and-ROS2-Manipulators/Robotics-and-ROS-2-Learn-by-Doing-Manipulators/Section6_Kinematics/arduinobot_ws` — ver `doc/md/bitacora-R05-moveit2.md`. Plan & Execute verificado end-to-end en Gazebo (grupos `arm` y `gripper`)
+- [ ] **[R06]** Aprender el manejo de Actions en ROS2 (goal/result/feedback, action server y client, patrón Future) — referencia: ejemplo Fibonacci en `/home/ezequiel/cursos/Robotics-and-ROS2-Manipulators/Robotics-and-ROS-2-Learn-by-Doing-Manipulators/Section7_Application/arduinobot_ws` — ver `doc/md/bitacora-R06-actions.md`
 
 ## 📌 Otros
 
