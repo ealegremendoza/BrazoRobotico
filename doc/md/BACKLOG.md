@@ -30,6 +30,7 @@ _Última actualización: 2026-09-18_
 - [x] **[R06]** Aprender el manejo de Actions en ROS2 (goal/result/feedback, action server y client, patrón Future) — referencia: ejemplo Fibonacci en `/home/ezequiel/cursos/Robotics-and-ROS2-Manipulators/Robotics-and-ROS-2-Learn-by-Doing-Manipulators/Section7_Application/arduinobot_ws` — ver `doc/md/bitacora-R06-actions.md`
 - [x] **[R07]** (Depende de R05, R06) Implementar API para manejar MoveIt2 (interfaz programática para enviar goals de planificación/ejecución al brazo, en vez de operarlo solo desde RViz) — ver `doc/md/bitacora-R07-moveit-api.md`. `task_server` verificado end-to-end en Gazebo (tareas 0-6)
 - [ ] **[R08]** (Depende de R07) Ejecutar el `task_server`/API de MoveIt2 sobre el brazo real — recalibrar o verificar que el "0" físico de los servos coincida con el "0" del modelo URDF antes de correr goals planificados en hardware
+- [ ] **[R09]** (Depende de R05) Implementar plugin `ros2_control` (`hardware_interface::SystemInterface`) para el brazo real — comunicación directa por puerto serie reusando la lógica de `STServo_Python`, dejando la interfaz reemplazable más adelante por una variante con ESP32 (ver `[E07]`)
 
 ## 📌 Otros
 
