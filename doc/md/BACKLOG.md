@@ -28,7 +28,7 @@ _Última actualización: 2026-09-18_
 - [ ] **[R04]** Investigar/implementar mitigación de backlash mecánico de los servos STS3215 (compensación por software al invertir dirección, ya que el encoder está en el eje del motor y no en el eslabón de salida)
 - [x] **[R05]** Implementar MoveIt2 para planificación de movimiento del brazo — referencia: `/home/ezequiel/cursos/Robotics-and-ROS2-Manipulators/Robotics-and-ROS-2-Learn-by-Doing-Manipulators/Section6_Kinematics/arduinobot_ws` — ver `doc/md/bitacora-R05-moveit2.md`. Plan & Execute verificado end-to-end en Gazebo (grupos `arm` y `gripper`)
 - [x] **[R06]** Aprender el manejo de Actions en ROS2 (goal/result/feedback, action server y client, patrón Future) — referencia: ejemplo Fibonacci en `/home/ezequiel/cursos/Robotics-and-ROS2-Manipulators/Robotics-and-ROS-2-Learn-by-Doing-Manipulators/Section7_Application/arduinobot_ws` — ver `doc/md/bitacora-R06-actions.md`
-- [ ] **[R07]** (Depende de R05, R06) Implementar API para manejar MoveIt2 (interfaz programática para enviar goals de planificación/ejecución al brazo, en vez de operarlo solo desde RViz) — ver `doc/md/bitacora-R07-moveit-api.md`
+- [x] **[R07]** (Depende de R05, R06) Implementar API para manejar MoveIt2 (interfaz programática para enviar goals de planificación/ejecución al brazo, en vez de operarlo solo desde RViz) — ver `doc/md/bitacora-R07-moveit-api.md`. `task_server` verificado end-to-end en Gazebo (tareas 0-6)
 - [ ] **[R08]** (Depende de R07) Ejecutar el `task_server`/API de MoveIt2 sobre el brazo real — recalibrar o verificar que el "0" físico de los servos coincida con el "0" del modelo URDF antes de correr goals planificados en hardware
 
 ## 📌 Otros

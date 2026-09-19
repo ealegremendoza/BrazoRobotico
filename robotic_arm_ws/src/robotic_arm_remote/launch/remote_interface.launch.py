@@ -46,7 +46,7 @@ def generate_launch_description():
 
     task_server_node_py = Node(
         package="robotic_arm_remote",
-        executable="task_server.py",
+        executable="task_server",
         condition=IfCondition(use_python),
         parameters=[moveit_config.to_dict(),
                     {"use_sim_time": is_sim}]

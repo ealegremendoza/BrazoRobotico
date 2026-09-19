@@ -96,13 +96,41 @@ El `group_state name="home"` del SRDF (todos los joints en 0) define el "0" de M
 
 `gripper` es el único asimétrico y el más angosto de todos (el que rompía `task_number == 0`). `wrist_roll` también es asimétrico, a diferencia de los otros 4 joints de `arm`.
 
-## Bug heredado sin corregir — `goal_handle.succeed()` incondicional
+## Bug heredado — `goal_handle.succeed()` incondicional (CORREGIDO)
 
-Igual que en el `task_server.py` de referencia: `goal_handle.succeed()` (línea 68) se llama siempre, incluso si `arm_plan_result`/`gripper_plan_result` fallan (el `else` solo loguea, no corta el flujo). El cliente se entera de "éxito" aunque el brazo no se haya movido. **Pendiente: corregir para llamar `goal_handle.abort()` y devolver `success=False` en el caso de falla.**
+Igual que en el `task_server.py` de referencia: `goal_handle.succeed()` se llamaba siempre, incluso si `arm_plan_result`/`gripper_plan_result` fallaban (el `else` solo logueaba, no cortaba el flujo). Corregido moviendo `result = RoboticArmTask.Result()` antes del `if`, seteando `result.success = True/False` en cada rama, y llamando `goal_handle.succeed()` dentro del `if` y `goal_handle.abort()` dentro del `else`. Ahora el estado del Action y el contenido del `Result` quedan consistentes en los dos casos.
 
-## Próximos pasos
+## Segundo bug encontrado en la corrección de valores — `elif` duplicados
 
-- Corregir el valor de `gripper_joint_goal` en `task_number == 0` (dentro de `[-0.174533, 1.74533]`).
-- Corregir el flujo condicional de `goal_handle.succeed()`/`abort()`.
-- Crear el launch file (`MoveItConfigsBuilder` + `.moveit_cpp(file_path="config/planning_python_api.yaml")` en `robotic_arm_moveit/config/`, siguiendo el patrón de `simple_moveit_interface.launch.py`) y probar `ros2 launch`.
+Al reescribir los `task_number` con los valores medidos en Gazebo, quedaron **tres `elif` distintos comparando contra el mismo número** (`== 4` repetido tres veces para las tareas "levanto y traslado", "roto a posición b" y "suelto en posición b"). En un `if/elif`, solo se ejecuta el primero que matchea — las otras dos ramas quedaban como código muerto, sin dar ningún error. Corregido renumerando a `4`, `5`, `6`.
+
+## Bloqueadores de lanzamiento encontrados y corregidos
+
+1. **Mismatch de nombre de ejecutable**: `CMakeLists.txt` instala el script con `RENAME task_server` (sin `.py`), pero `remote_interface.launch.py` inicialmente pedía `executable="task_server.py"` (con extensión) — `ros2 launch` fallaba con "executable not found". Corregido a `executable="task_server"`.
+2. **Faltaba `robotic_arm_moveit/config/planning_python_api.yaml`**: referenciado por `.moveit_cpp(file_path="config/planning_python_api.yaml")` en el launch, no existía. Creado con `pipeline_names: ["ompl"]` y `plan_request_params` (mismo contenido que el de referencia).
+
+## R07 completada — verificado end-to-end en Gazebo
+
+Secuencia de prueba, en 3 terminales + 1 para mandar goals:
+
+```bash
+# Terminal 1 — Gazebo + robot
+ros2 launch robotic_arm_description gazebo.launch.py
+
+# Terminal 2 — controladores ros2_control (joint_state_broadcaster, arm_controller, gripper_controller)
+ros2 launch robotic_arm_controller controller.launch.py is_sim:=True
+
+# Terminal 3 — task_server (MoveItPy)
+ros2 launch robotic_arm_remote remote_interface.launch.py use_python:=True is_sim:=True
+
+# Terminal 4 — mandar goals (CLI de Actions, visto en R06)
+ros2 action list                                                          # confirmar que aparece /task_server
+ros2 action send_goal /task_server robotic_arm_msgs/action/RoboticArmTask "{task_number: 0}"
+```
+
+Las 7 tareas (`task_number` 0 a 6) probadas y funcionando en Gazebo: pose zero, posición inicial, rotar+abrir gripper, agarrar objeto, trasladar a centro, rotar a posición B sosteniendo, soltar en posición B.
+
+## Próximos pasos (queda para [R08])
+
+- Ejecutar contra el brazo real — bloqueado por el desacople de calibración entre el "0" del modelo y el "0" físico de los servos (ver sección más arriba).
 - Evaluar si conviene migrar más adelante a la arquitectura desacoplada (action client Python propio contra `move_action` de `move_group`, en vez de `MoveItPy`), aprovechando lo aprendido en [[project_r06_actions_progress]].
