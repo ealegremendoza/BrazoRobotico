@@ -83,6 +83,19 @@ El `group_state name="home"` del SRDF (todos los joints en 0) define el "0" de M
 
 `task_number == 1` y `2` sí verificados dentro de límites de los 5 joints de `arm`.
 
+### Tabla de límites por joint (verificado contra `robotic_arm.urdf.xacro`)
+
+| Joint | Group | Límite inf. (rad) | Límite sup. (rad) | Límite inf. (°) | Límite sup. (°) |
+|---|---|---|---|---|---|
+| `shoulder_pan` | arm | -1.91986 | 1.91986 | -110.0° | 110.0° |
+| `shoulder_lift` | arm | -1.74533 | 1.74533 | -100.0° | 100.0° |
+| `elbow_flex` | arm | -1.69 | 1.69 | -96.9° | 96.9° |
+| `wrist_flex` | arm | -1.65806 | 1.65806 | -95.0° | 95.0° |
+| `wrist_roll` | arm | -2.74385 | 2.84121 | -157.3° | 162.8° |
+| `gripper` | gripper | -0.174533 | 1.74533 | -10.0° | 100.0° |
+
+`gripper` es el único asimétrico y el más angosto de todos (el que rompía `task_number == 0`). `wrist_roll` también es asimétrico, a diferencia de los otros 4 joints de `arm`.
+
 ## Bug heredado sin corregir — `goal_handle.succeed()` incondicional
 
 Igual que en el `task_server.py` de referencia: `goal_handle.succeed()` (línea 68) se llama siempre, incluso si `arm_plan_result`/`gripper_plan_result` fallan (el `else` solo loguea, no corta el flujo). El cliente se entera de "éxito" aunque el brazo no se haya movido. **Pendiente: corregir para llamar `goal_handle.abort()` y devolver `success=False` en el caso de falla.**
