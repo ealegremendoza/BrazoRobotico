@@ -79,6 +79,16 @@ ros2 pkg create --build-type ament_cmake robotic_arm_firmware
 - `<buildtool_depend>ament_cmake_python</buildtool_depend>`
 - `<exec_depend>` para `rclpy`, `std_msgs` y **`python3-serial`** (clave rosdep de `pyserial`; sin ella, en otra máquina el nodo falla con `ModuleNotFoundError: serial`).
 
+### ¿Para qué sirve `__init__.py`?
+
+Marca una carpeta como **paquete** de Python (una carpeta de módulos importable). Usos:
+
+1. **Hacerla importable:** con `robotic_arm_firmware/__init__.py` presente, funciona `from robotic_arm_firmware import algo`.
+2. **Código de inicialización:** lo que contenga se ejecuta una vez, la primera vez que se importa el paquete. Normalmente queda vacío.
+3. **Definir la API pública:** por ejemplo, `from .serial_utils import open_port` dentro de `__init__.py` permite `from robotic_arm_firmware import open_port` sin conocer el archivo interno.
+
+Matiz: desde Python 3.3 existen los *namespace packages* (carpetas sin `__init__.py` que igual se pueden importar), pero muchas herramientas de empaquetado lo exigen. `ament_python_install_package` es una de ellas: sin `__init__.py` el build falla. Por eso en ROS2 siempre se crea, aunque esté vacío.
+
 ## Troubleshooting: build roto después de actualizar ROS con apt
 
 Al correr `colcon build` después de crear el paquete, falló **`robotic_arm_msgs`** (paquete ya existente, no el nuevo):
@@ -102,9 +112,113 @@ colcon build
 
 **Regla general:** después de actualizar paquetes de ROS con apt, si aparece un error de `No rule to make target '/opt/ros/...'` con una versión de librería que ya no existe, es caché de CMake desactualizado. Se arregla borrando `build/<paquete>` e `install/<paquete>` del paquete afectado (o todo `build/ install/ log/` si son varios).
 
-## Próximos pasos
+## Implementación
 
-- Recompilar el workspace y verificar que `robotic_arm_firmware` compila.
-- Completar `CMakeLists.txt` y `package.xml` con lo de arriba.
-- Implementar ambos nodos con las correcciones.
-- Probar contra el ESP32 / Arduino por puerto serie.
+### `CMakeLists.txt` y `package.xml`
+
+- `install(PROGRAMS ...)` sin `RENAME`: los nodos se ejecutan con `.py` (`ros2 run robotic_arm_firmware simple_serial_receiver.py`). Decisión consciente.
+- `package.xml` final: `buildtool_depend` `ament_cmake` + `ament_cmake_python`; `depend` `rclpy` + `std_msgs`; `exec_depend` `python3-serial`.
+- Se descartaron `rclcpp`, `libserial-dev` y el chequeo `pkg_check_modules(libserial)`: son dependencias de **C++**, ningún archivo del paquete las usa. Vuelven cuando se haga el plugin de `[R09]`.
+
+Qué instala cada función (verificado en `install/robotic_arm_firmware/`):
+- `ament_python_install_package` → `lib/python3.12/site-packages/robotic_arm_firmware/` (módulo importable con `import`).
+- `install(PROGRAMS)` → `lib/robotic_arm_firmware/` (ejecutables, donde busca `ros2 run`). Requiere el shebang `#!/usr/bin/env python3`.
+
+### `pyserial`: tres nombres para la misma librería
+
+| Dónde | Nombre |
+|---|---|
+| pip / PyPI | `pyserial` |
+| Código | `import serial` |
+| apt / rosdep (`package.xml`) | `python3-serial` |
+
+Trampa: en PyPI existe otro paquete llamado `serial` (serialización) que pisa el módulo; nunca `pip install serial`.
+
+### Receiver
+
+```python
+def timerCallback(self):
+    if rclpy.ok() and self.serial_port.is_open:
+        try:
+            data = self.serial_port.readline().strip()
+            if not data:
+                return
+            msg = String()
+            msg.data = data.decode("utf-8")
+            self.pub_.publish(msg)
+        except UnicodeDecodeError as e:
+            self.get_logger().warning(f"Invalid UTF-8 on serial: {e}")
+```
+
+Logging en rclpy: `self.get_logger().<nivel>(...)` con niveles `debug`, `info`, `warning`, `error`, `fatal`. Para evitar spam: `throttle_duration_sec=1.0`.
+
+### Transmitter: framing con `\n`
+
+El receiver (`readline()`) y el firmware cortan mensajes por `\n`, pero el transmitter original mandaba `msg.data` tal cual → el eco nunca salía. El `\n` lo agrega el **transmitter**: el framing es un detalle del enlace serie; quien publica en el topic no debería conocerlo.
+
+```python
+data_to_send = (msg.data + "\n").encode("utf-8")
+self.serial_port.write(data_to_send)
+```
+
+Error evitado: `msg.data.encode("utf-8") + "\n"` → `TypeError: can't concat str to bytes`. Alternativa válida: `msg.data.encode("utf-8") + b"\n"`.
+
+El `\n` es una convención del protocolo, no una obligación. Opciones de framing:
+- **Delimitador de texto (`\n`)**: simple y legible; el delimitador no puede aparecer en los datos.
+- **Marcadores STX/ETX (+ checksum)**: como en `[E05]`; permite resincronizar y detectar corrupción.
+- **Largo en el encabezado**: como el protocolo de los servos (`[E04]`); necesario con payload binario arbitrario.
+
+Para otro delimitador en Python: `read_until(expected=b'\x03')`. Regla: transmitter, receiver y firmware tienen que usar la misma.
+
+## Prueba con Arduino Nano
+
+### ¿Por qué no con el monitor serie?
+
+Un puerto serie lo abre **un solo proceso**. Si el nodo abre `/dev/ttyUSB0`, el Serial Monitor / `idf.py monitor` no puede usarlo (y si se fuerza, se reparten los bytes). Los topics pasan a ser la ventana: `ros2 topic pub` = teclado, `ros2 topic echo` = pantalla.
+
+### ¿Por qué Nano y no ESP32?
+
+Se evaluó usar el `uart_echo` del ESP32 sobre UART0 (USB). Es viable y más realista, pero:
+- los logs de ESP-IDF salen por UART0 y el receiver los publicaría como datos (hay que bajar el log level o mover la consola en `menuconfig`),
+- los mensajes del bootloader del ROM no se pueden desactivar desde menuconfig,
+- el auto-reset por DTR/RTS reinicia la placa al abrir el puerto,
+- hay que reconfigurar el ejemplo (UART 0 en vez de UART2 17/16).
+
+Se eligió el Nano: su `Serial` **es** el USB y no hay ruido de logs → prueba más limpia.
+
+### Sketch de eco
+
+`firmware/arduino-uart-echo/uart-echo/uart-echo.ino`: acumula caracteres hasta `\n`, devuelve la línea con `Serial.println()` (que manda `\r\n`, limpiado por `.strip()` en el receiver) y además prende/apaga el LED del pin 13 con `ON`/`OFF`. Baudrate **115200**, igual al default de los nodos.
+
+### Procedimiento
+
+```bash
+# T1
+ros2 run robotic_arm_firmware simple_serial_receiver.py
+# T2
+ros2 run robotic_arm_firmware simple_serial_transmitter.py
+# T3
+ros2 topic echo /serial_receiver
+# T4 (--once publica un mensaje y termina)
+ros2 topic pub --once /serial_transmitter std_msgs/msg/String "{data: 'ON'}"
+ros2 topic pub --once /serial_transmitter std_msgs/msg/String "{data: 'OFF'}"
+```
+
+Notas:
+- El Nano (chip FTDI FT232R) aparece como `/dev/ttyUSB0`, el default del parámetro `port`. Si no, `--ros-args -p port:=/dev/ttyXXX`.
+- El Nano se resetea al abrirse el puerto (DTR): esperar ~2 s antes de publicar.
+- Para subir un sketch hay que **frenar los nodos** primero: ocupan el mismo puerto que usa el IDE para programar. (Primer intento sin respuesta: el sketch nunca se había subido.)
+
+### Resultado
+
+```
+❯ ros2 topic echo /serial_receiver
+data: 'ON'
+---
+data: 'OFF'
+---
+```
+
+Eco correcto de punta a punta y LED respondiendo a `ON`/`OFF`. Los datos llegan decodificados (`'ON'`, no `b'ON'`), lo que confirma el arreglo del bug de `str(data)`.
+
+_Completada: 2026-09-23_

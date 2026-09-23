@@ -1,6 +1,6 @@
 # Backlog de Tareas
 
-_Última actualización: 2026-09-18_
+_Última actualización: 2026-09-23_
 
 ## Cómo usar este documento
 - Agregar tareas nuevas bajo la categoría correspondiente (o crear una nueva sección si hace falta).
@@ -31,7 +31,7 @@ _Última actualización: 2026-09-18_
 - [x] **[R07]** (Depende de R05, R06) Implementar API para manejar MoveIt2 (interfaz programática para enviar goals de planificación/ejecución al brazo, en vez de operarlo solo desde RViz) — ver `doc/md/bitacora-R07-moveit-api.md`. `task_server` verificado end-to-end en Gazebo (tareas 0-6)
 - [ ] **[R08]** (Depende de R07) Ejecutar el `task_server`/API de MoveIt2 sobre el brazo real — recalibrar o verificar que el "0" físico de los servos coincida con el "0" del modelo URDF antes de correr goals planificados en hardware
 - [ ] **[R09]** (Depende de R05) Implementar plugin `ros2_control` (`hardware_interface::SystemInterface`) para el brazo real — comunicación directa por puerto serie reusando la lógica de `STServo_Python`, dejando la interfaz reemplazable más adelante por una variante con ESP32 (ver `[E07]`)
-- [ ] **[R10]** Crear los nodos `simple_serial_transmitter` y `simple_serial_receiver` en Python (topic ↔ puerto serie) igual que en el curso — referencia: `/home/ezequiel/cursos/Robotics-and-ROS2-Manipulators/Robotics-and-ROS-2-Learn-by-Doing-Manipulators/Section9_Build/arduinobot_ws/src/arduinobot_firmware/arduinobot_firmware` — ver `doc/md/bitacora-R10-serial-nodes.md`
+- [x] **[R10]** Crear los nodos `simple_serial_transmitter` y `simple_serial_receiver` en Python (topic ↔ puerto serie) igual que en el curso — referencia: `/home/ezequiel/cursos/Robotics-and-ROS2-Manipulators/Robotics-and-ROS-2-Learn-by-Doing-Manipulators/Section9_Build/arduinobot_ws/src/arduinobot_firmware/arduinobot_firmware` — ver `doc/md/bitacora-R10-serial-nodes.md`
 
 ## 📌 Otros
 
