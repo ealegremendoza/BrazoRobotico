@@ -126,6 +126,42 @@ Pérdida por redondeo: máx 0.5 mrad ≈ 0.029°, unas 3 veces menor que la reso
 
 Joints separados por `FS` (`0x1C`).
 
+## Diseño de `read()` (decidido)
+
+### Lectura sin bloqueo
+
+El puerto entrega bytes, no tramas: puede llegar media trama y el resto en el ciclo siguiente. Los bytes se acumulan en `rx_buffer_`, **miembro de la clase** (no global en el namespace anónimo): es estado de cada puerto, no se comparte entre instancias y se limpia en `on_activate`.
+
+Trampa de LibSerial (`/usr/include/libserial/SerialPort.h`): en `Read(str, n, msTimeout)`, **`msTimeout = 0` bloquea** hasta recibir los `n` bytes. Si el ESP32 no responde, se congela el loop de `ros2_control`. Solución:
+
+1. `GetNumberOfBytesAvailable()` → `n`. Si `n == 0`, no llamar a `Read()`.
+2. `Read()` de exactamente `n` bytes (ya están en el buffer del SO, vuelve al instante) a un string local.
+3. Agregar ese string a `rx_buffer_`.
+
+### Parseo y resincronización
+
+Hay dos formas de no tener trama válida: **inválida** (se descarta) e **incompleta** (se espera; descartarla rompería una trama buena).
+
+1. Descartar lo que haya antes del primer STX. Sin STX → vaciar el buffer.
+2. No llegaron los 4 bytes de LEN → salir y esperar al próximo `read()`.
+3. LEN no son 4 dígitos ASCII o está fuera de rango (mín. 4 = CID + FS + ETX + LRC; con un tope máximo) → descartar 1 byte, volver a 1.
+4. No está la trama completa (`1 + 4 + LEN` bytes) → salir y esperar.
+5. ETX no está en su posición o el LRC no coincide (XOR de LEN hasta ETX, sin STX ni el LRC) → descartar 1 byte, volver a 1.
+6. Trama válida → procesarla, sacarla del buffer, volver a 1.
+
+- **Descartar 1 byte y no la trama entera**: el LRC puede valer `0x02` y pasar por STX. Si se descarta todo, se pierde la trama real que empezaba adentro.
+- **Tope de LEN**: sin él, un LEN corrupto (`9039`) haría esperar miles de bytes y las tramas buenas quedarían atrapadas.
+- **Loop hasta vaciar**: puede haber varias tramas por ciclo (un `E` + una `M`, o dos `M` si el loop se atrasó). Procesar una por llamada acumula latencia (como la cola de `[R11]`). Si llegan varias `M`, gana la última.
+
+### Payload de `M` (respuesta)
+
+La PC no ve el formato de los servos (binario Feetech, counts): el ESP32 convierte counts → mrad y responde con el mismo formato que la `M` de `write()`.
+
+- Cantidad de campos = `position_states_.size()`.
+- Cada campo: 5 chars, signo `+`/`-` y 4 dígitos.
+- Si un campo falla, se descarta la trama **entera** y `position_states_` conserva los valores anteriores (nunca actualizar a medias).
+- Conversión: `mrad / 1000.0` (con `1000` entero, `1571 / 1000` daría `1`).
+
 ## Pendientes
 
 - [ ] Mover la apertura del puerto serie de `on_activate` a `on_configure` (ver `[R11]`). Por ahora se sigue la estructura del curso.
