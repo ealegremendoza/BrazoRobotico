@@ -82,6 +82,25 @@ DETENIDO ──S──▶ INICIALIZADO ──(home + trabajo con M)──▶ OPE
 - Solo sale de `DETENIDO` con el comando **`S` (start)**: rearmar tiene que ser una acción deliberada.
 - Todas las transiciones de estado se informan a la PC con un `E`.
 
+#### Estado `ENSEÑANZA` (agregado con teach & repeat)
+
+Cuarto estado del ESP32. Es el único estado de la aplicación (R4.1) que cambia el comportamiento del ESP32:
+
+- Corta el torque de los joints del brazo (el usuario lo mueve a mano).
+- Mantiene el torque del gripper y hace que siga al **potenciómetro**.
+- Sigue informando posiciones a la PC (para capturar waypoints).
+
+Transiciones de entrada y salida de `ENSEÑANZA`: pendientes (junto con el flujo de la botonera).
+
+#### Dos niveles de estados
+
+| Nivel | Dónde vive | Estados | Para qué |
+|---|---|---|---|
+| Seguridad / hardware | ESP32 | `DETENIDO`, `INICIALIZADO`, `OPERANDO`, `ENSEÑANZA` | Si el brazo puede moverse y cómo se comportan los servos |
+| Aplicación (R4.1) | `arm_supervisor` | listo, enseñanza, grabando, guardado, reproduciendo, finalizado, error, detenido | Lo que ve el usuario y la lógica de la tarea |
+
+El ESP32 no necesita saber si algo está "guardado" o "finalizado": esos estados viven solo en el supervisor. Solo "enseñanza" tiene su par en el ESP32, porque cambia qué hacen los servos.
+
 ### Comando `S`
 
 ```
@@ -204,9 +223,13 @@ Registros relevantes del STS3215 (`doc/datasheets/ST3215 memory register map-EN.
 ### Pendiente
 
 - Botonera: cómo distinguir "marcar un waypoint más" de "terminar y guardar la grabación".
-- Integrar los estados de R4.1 con la máquina de estados del ESP32 / `arm_supervisor`.
+- Transiciones de entrada y salida del estado `ENSEÑANZA` del ESP32.
 - Formato y almacenamiento persistente de las grabaciones en la PC.
-- Cómo muestra el display la lista de grabaciones (el CID `D` actual solo manda IDs de una tabla prearmada en el ESP32).
+- **Display (decidido):** la lista de grabaciones llega al LCD por el CID `D`. Cambia su definición: hoy manda el **ID** de un mensaje prearmado en el ESP32; tiene que pasar a llevar **texto** (líneas a mostrar), porque la lista es dinámica. Como el puerto lo tiene el plugin, hace falta un tercer topic (p. ej. `/esp32/display`) que el plugin escuche y convierta en tramas `D`.
+  - Payload: `msg1 FS msg2 FS ... FS msgN`, cada mensaje de hasta **15 caracteres** (en un LCD de 20 columnas deja 5 para prefijo `1: ` y cursor `>`).
+  - Una pantalla completa (LCD 20×4) son 4 mensajes: payload 4×15 + 3 = 63, LEN 67. No entraba con el tope de LEN = 64 (payload máx. 60); **se subió el tope a 128** (`kMaxLen` en el plugin y en el firmware). Es un límite de cordura del parser: subirlo no rompe nada. A 115200, ~130 bytes ≈ 11 ms, y `D` solo se manda al cambiar la pantalla.
+  - Mensajes en **ASCII imprimible**: no pueden contener `0x02`, `0x03` ni `0x1C` (romperían la trama), y el ROM del HD44780 no tiene `ñ` ni tildes en las posiciones estándar.
+- **Quién graba (propuesto, sin confirmar):** el `arm_supervisor` decide cuándo capturar un waypoint (orquestación, ya escucha los `E`); un nodo nuevo `recording_manager` guarda/lista/lee/borra grabaciones en disco con servicios (`save`, `list`, `get`, `delete`). Alineado con R6.1 (módulos separados: grabación, gestión, reproducción…). Tradeoff: un nodo más.
 - Ajustar la definición de trayectoria en `requisitos.md`.
 
 ## Nodos del sistema

@@ -144,13 +144,13 @@ Hay dos formas de no tener trama válida: **inválida** (se descarta) e **incomp
 
 1. Descartar lo que haya antes del primer STX. Sin STX → vaciar el buffer.
 2. No llegaron los 4 bytes de LEN → salir y esperar al próximo `read()`.
-3. LEN no son 4 dígitos ASCII o está fuera de rango (mín. 4 = CID + FS + ETX + LRC; máx. 64) → descartar 1 byte, volver a 1.
+3. LEN no son 4 dígitos ASCII o está fuera de rango (mín. 4 = CID + FS + ETX + LRC; máx. 128) → descartar 1 byte, volver a 1.
 4. No está la trama completa (`1 + 4 + LEN` bytes) → salir y esperar.
 5. ETX no está en su posición o el LRC no coincide (XOR de LEN hasta ETX, sin STX ni el LRC) → descartar 1 byte, volver a 1.
 6. Trama válida → procesarla, sacarla del buffer, volver a 1.
 
 - **Descartar 1 byte y no la trama entera**: el LRC puede valer `0x02` y pasar por STX. Si se descarta todo, se pierde la trama real que empezaba adentro.
-- **Tope de LEN = 64**: sin él, un LEN corrupto (`9039`) haría esperar miles de bytes y las tramas buenas quedarían atrapadas. No es parte del formato (LEN es simétrico en ambas direcciones) sino un límite de cordura del parser. La trama más larga esperada es una `M` de 6 joints (LEN = 39); 64 deja margen para más joints o campos.
+- **Tope de LEN = 128** (era 64; subido en `[R03]` para que entre una pantalla completa de LCD en una trama `D`: 4 mensajes de 15 chars → payload 63, LEN 67): sin él, un LEN corrupto (`9039`) haría esperar miles de bytes y las tramas buenas quedarían atrapadas. No es parte del formato (LEN es simétrico en ambas direcciones) sino un límite de cordura del parser. La trama más larga esperada es una `M` de 6 joints (LEN = 39); 64 deja margen para más joints o campos.
 - **Loop hasta vaciar**: puede haber varias tramas por ciclo (un `E` + una `M`, o dos `M` si el loop se atrasó). Procesar una por llamada acumula latencia (como la cola de `[R11]`). Si llegan varias `M`, gana la última.
 
 ### Payload de `M` (respuesta)
