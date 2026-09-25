@@ -167,3 +167,4 @@ La PC no ve el formato de los servos (binario Feetech, counts): el ESP32 convier
 - [ ] Mover la apertura del puerto serie de `on_activate` a `on_configure` (ver `[R11]`). Por ahora se sigue la estructura del curso.
 - [x] `write()`: reemplazar el protocolo de texto del curso (`b090,s090,...`) por tramas `M`.
 - [x] `read()`: usar la posición real informada por los servos en vez de lazo abierto.
+- [ ] Detectar cuando el ESP32 deja de responder: hoy `read()` conserva la última posición sin avisar (ver "Detección de fallas" en el modelo request/response).
