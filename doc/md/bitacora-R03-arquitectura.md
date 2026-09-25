@@ -133,8 +133,8 @@ La lógica de parada, `S` y home va en un **nodo nuevo**, no en el `task_server`
 
 | Nodo | Responsabilidad |
 |---|---|
-| `arm_supervisor` (nuevo) | Máquina de estados del brazo (DETENIDO / INICIALIZADO / OPERANDO). Manda `S` y va a home. Al recibir la parada, cancela la trayectoria activa **del controller** (sin importar quién la mandó). Publica el estado del sistema. |
-| `task_server` | Ejecuta tareas. Consulta el estado y rechaza goals si el brazo no está en OPERANDO. |
+| `arm_supervisor` (nuevo) | Máquina de estados del brazo (DETENIDO / INICIALIZADO / OPERANDO). Manda `S` y va a home. Al recibir la parada, cancela la trayectoria activa **del controller** (sin importar quién la mandó). Publica el estado del sistema. Decide cuándo capturar waypoints. **Dueño del display**: publica en `/esp32/display` qué muestra el LCD (conoce el estado de la aplicación y la selección actual). |
+| `task_server` | Ejecuta movimientos. Hoy: 7 tareas fijas (0–6). Crece para "ir a home" y "ejecutar una grabación" (recorrer la lista de waypoints que le pasa el supervisor). **Ejecuta, no decide ni guarda:** no lee archivos ni sabe de botones. Consulta el estado y rechaza goals si el brazo no está en OPERANDO. |
 | `recording_manager` (nuevo) | Persistencia de grabaciones (waypoints + gripper): servicios `save`, `list`, `get`, `delete`. |
 
 **No es lifecycle node:**
@@ -232,6 +232,16 @@ Registros relevantes del STS3215 (`doc/datasheets/ST3215 memory register map-EN.
   - Mensajes en **ASCII imprimible**: no pueden contener `0x02`, `0x03` ni `0x1C` (romperían la trama), y el ROM del HD44780 no tiene `ñ` ni tildes en las posiciones estándar.
 - **Quién graba (decidido):** el `arm_supervisor` decide cuándo capturar un waypoint (orquestación, ya escucha los `E`); un nodo nuevo y **aparte**, `recording_manager`, guarda/lista/lee/borra grabaciones en disco con servicios (`save`, `list`, `get`, `delete`). Alineado con R6.1 (módulos separados: grabación, gestión, reproducción…) y permite cambiar el formato de almacenamiento sin tocar la lógica de estados. Tradeoff: un nodo más para lanzar y mantener. Pendiente: formato del archivo y definición de los servicios.
 - Ajustar la definición de trayectoria en `requisitos.md`.
+
+### RViz opcional (`use_rviz`)
+
+`moveit.launch.py` lanza RViz siempre. En modo real la computadora va integrada en el brazo (R6.0), probablemente sin monitor: RViz sobra o falla sin pantalla. Se agrega un argumento `use_rviz`:
+
+- `simulated_robot.launch.py`: `use_rviz:=True` (en simulación siempre se quiere ver el brazo).
+- `real_robot.launch.py`: `use_rviz:=False`; se activa a mano si se conecta una pantalla.
+- Operación desde la consola de Linux (`ros2 action send_goal`, etc.) no necesita RViz.
+
+Pendiente de implementar.
 
 ## Nodos del sistema
 
