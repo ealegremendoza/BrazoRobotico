@@ -194,8 +194,9 @@ hardware_interface::return_type RoboticArmInterface::write(const rclcpp::Time &t
   body += kFieldSeparator;
   body += payload;
 
+  // LEN counts CID + FS + payload + ETX + LRC (ETX and LRC are appended below)
   char len[5];  // 4 digits + '\0'
-  std::snprintf(len, sizeof(len), "%04zu", body.size());
+  std::snprintf(len, sizeof(len), "%04zu", body.size() + 2);
 
   std::string msg;
   msg += kStx;
