@@ -154,6 +154,61 @@ Tabla de códigos de `E`:
 | ? | Torque cortado (botón 2) |
 | ? | Errores (servo que no responde, trama inválida, …) |
 
+## Teach & repeat (enseñar y repetir)
+
+### Qué piden los requisitos
+
+De `doc/md/requisitos.md`, `tables/PLAN_CSV/REQUERIMIENTOS.csv` y `doc/img/display_y_boyonera.png`:
+
+| Requisito | Qué implica |
+|---|---|
+| R3.0–R3.2 | Grabar una secuencia durante la enseñanza y reproducirla. `requisitos.md:81` define trayectoria como "secuencia ordenada de posiciones articulares y tiempos asociados". |
+| R3.3 / R3.4 | Seleccionar y borrar trayectorias guardadas. |
+| R3.5 | Persistencia después de apagar: se guardan en disco del lado de la PC. |
+| R4.0 + imagen | LCD 20×4 (HD44780) y botonera GRABAR / SELECCIONAR / REPRODUCIR / BORRAR. La parada va aparte (R5.1). |
+| R4.1 | Estados mínimos: listo, enseñanza, grabando, guardado, reproduciendo, finalizado, error, detenido. |
+| R5.3 | Posición de referencia (home) antes de reproducir. |
+| R6.0 | La "PC" es una **computadora integrada** en el brazo: sin computadora externa en uso normal. |
+
+### Decisión: waypoints + MoveIt (primera etapa)
+
+Los requisitos se escribieron antes de conocer MoveIt. En vez de grabar una trayectoria continua (posiciones + tiempos) y reproducirla directo por el `joint_trajectory_controller`, en la primera etapa se graban **waypoints** y MoveIt planifica entre ellos (programación por waypoints, como muchas teach pendants industriales).
+
+- **Una grabación = lista ordenada de waypoints.** Cada waypoint guarda las posiciones de los joints del brazo y el estado del gripper.
+- A favor: reusa MoveIt y el `task_server` (verificados en `[R07]`/`[R12]`); trayectorias suaves y dentro de límites; sin temblores de la mano ni backlash (`[R04]`) grabados; grabación simple (posicionar y apretar).
+- En contra: el camino **entre** waypoints lo decide MoveIt, no el usuario. MoveIt solo evita lo modelado en la escena: un obstáculo real no modelado puede chocarse aunque el usuario lo haya esquivado al enseñar. Se resuelve agregando waypoints intermedios.
+- La grabación continua queda como mejora futura.
+- **Pendiente:** ajustar en `requisitos.md` la definición de trayectoria (hoy incluye "tiempos asociados") para que coincida con lo implementado.
+
+### Gripper: potenciómetro como el slider de `servo_control_ui.py`
+
+En la aplicación real no hay slider (botonera o consola de Linux). Se agrega un **potenciómetro** en el ESP32 que controla la **posición** del gripper, igual que el slider de `servo_control_ui.py`.
+
+- **Al enseñar:** el gripper **mantiene torque** y sigue al potenciómetro; los joints del brazo quedan sin torque para moverlos a mano (igual que `GRIPPER_SERVO_ID` en `servo_control_ui.py:84-86`).
+- **Se graba el valor pedido por el potenciómetro, no la posición leída del gripper.**
+
+Hallazgo en `servo_control_ui.py`: `record_position()` (línea 277) devuelve `_last_position`, la posición **leída** (`set_feedback`, línea 284). En el gripper eso es el **punto de contacto** con la pieza: al reproducir, el servo va justo ahí y la fuerza es casi nula (toca sin apretar). La fuerza al enseñar viene de la diferencia entre lo pedido (más cerrado que la pieza) y el contacto; grabando lo pedido, al reproducir vuelve a apretar.
+
+Tradeoffs aceptados:
+
+- La fuerza depende de cuánto se cerró de más respecto de la pieza: si la pieza varía de tamaño, varía el agarre.
+- **Protección de sobrecarga del STS3215** (valores por defecto): si la carga supera el **80 %** (registro 36) durante **2 s** (registro 35), el servo baja a **20 %** de torque (registro 34) y puede aflojar el agarre en pleno traslado. Limitar el recorrido útil del potenciómetro o avisar en el display.
+
+Alternativas evaluadas (quedan como mejora futura):
+
+- **B — estado binario + torque limitado:** grabar `abierto`/`cerrado` y cerrar con el registro *Torque limit* (48). Fuerza independiente del tamaño de la pieza. El potenciómetro podría controlar la **fuerza** en vez de la posición.
+- **C — corriente:** grabar la corriente del gripper (registro 69, 6.5 mA/unidad, hasta 3250 mA) al enseñar y cerrar hasta alcanzarla al reproducir.
+
+Registros relevantes del STS3215 (`doc/datasheets/ST3215 memory register map-EN.xls`): no hay sensor de fuerza. *Current current* (69) es la mejor estimación (torque ≈ proporcional a la corriente; el datasheet no da la constante, sirve para comparar o hay que calibrar). *Current load* (60) es el duty cycle del control, más indirecto.
+
+### Pendiente
+
+- Botonera: cómo distinguir "marcar un waypoint más" de "terminar y guardar la grabación".
+- Integrar los estados de R4.1 con la máquina de estados del ESP32 / `arm_supervisor`.
+- Formato y almacenamiento persistente de las grabaciones en la PC.
+- Cómo muestra el display la lista de grabaciones (el CID `D` actual solo manda IDs de una tabla prearmada en el ESP32).
+- Ajustar la definición de trayectoria en `requisitos.md`.
+
 ## Nodos del sistema
 
 | Nodo | Paquete | Rol |
