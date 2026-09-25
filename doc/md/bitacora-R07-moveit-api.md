@@ -121,7 +121,7 @@ ros2 launch robotic_arm_description gazebo.launch.py
 ros2 launch robotic_arm_controller controller.launch.py is_sim:=True
 
 # Terminal 3 — task_server (MoveItPy)
-ros2 launch robotic_arm_remote remote_interface.launch.py use_python:=True is_sim:=True
+ros2 launch robotic_arm_remote remote_interface.launch.py is_sim:=True
 
 # Terminal 4 — mandar goals (CLI de Actions, visto en R06)
 ros2 action list                                                          # confirmar que aparece /task_server
