@@ -48,14 +48,16 @@ STX | LEN | CID | FS | payload | ETX | LRC
 | Campo | Formato | Descripción |
 |---|---|---|
 | `STX` | `0x02` | Inicio de trama |
-| `LEN` | 4 dígitos ASCII decimal | Largo de **CID + FS + payload** (sin contarse a sí mismo) |
+| `LEN` | 4 dígitos ASCII decimal | Largo de **CID + FS + payload + ETX + LRC** (sin contarse a sí mismo ni al STX) |
 | `CID` | 1 char ASCII | Identificador de comando |
 | `FS` | `0x1C` | Separa el CID del payload |
 | `payload` | ASCII | Depende del CID |
 | `ETX` | `0x03` | Fin de trama (verificación extra para resincronizar) |
 | `LRC` | 1 byte | XOR de **LEN + CID + FS + payload + ETX** (todo menos STX) |
 
-Ejemplo: `CID=D` con payload `"07"` → `LEN = "0004"` (`D` + FS + `07`).
+Ejemplo: `CID=D` con payload `"07"` → `LEN = "0006"` (`D` + FS + `07` + ETX + LRC).
+
+Largo total de la trama desde STX = `1 + 4 + LEN`. Se incluyen ETX y LRC en LEN para que el parser calcule el fin de trama sin sumar la cola fija.
 
 **FS después del CID:** el CID es de 1 char en posición fija, así que el FS no es estrictamente necesario (el parser podría leerlo por posición). Se agrega igual para poder partir toda la trama con un solo `split(FS)` y dejar abierta la puerta a CIDs de más de un char. Costo: 1 byte por trama.
 
