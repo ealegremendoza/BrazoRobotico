@@ -38,6 +38,8 @@ private:
   std::string port_;
   std::vector<double> position_commands_;
   std::vector<double> position_states_;
+  // Bytes received from the ESP32 that do not form a complete frame yet
+  std::string rx_buffer_;
 };
 }  // namespace robotic_arm_controller
 

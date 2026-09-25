@@ -3,6 +3,7 @@
 #include <pluginlib/class_list_macros.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 
@@ -20,6 +21,61 @@ constexpr char kEtx = '\x03';
 constexpr char kFieldSeparator = '\x1C';
 // Joint range sent in "M": +-pi rad
 constexpr long kMaxJointMrad = 3142;
+// LEN: 4 ASCII digits, counts CID + FS + payload + ETX + LRC
+constexpr size_t kLenDigits = 4;
+constexpr size_t kMinLen = 4;   // CID + FS + ETX + LRC, empty payload
+constexpr size_t kMaxLen = 64;  // parser sanity cap, a 6-joint "M" has LEN 39
+// Joint field in "M": sign + 4 digits, e.g. "+1571"
+constexpr size_t kJointFieldLen = 5;
+// Safety net only: read() asks for bytes already available, so it never waits
+constexpr size_t kReadTimeoutMs = 1;
+
+// Parses an "M" payload (j1 FS j2 FS ... FS jn, mrad) into radians.
+// All or nothing: on any malformed field, positions is left untouched.
+bool parseJointPositions(const std::string &payload, std::vector<double> &positions)
+{
+  const size_t n = positions.size();
+  if (n == 0 || payload.size() != n * kJointFieldLen + (n - 1))
+  {
+    return false;
+  }
+
+  std::vector<double> parsed;
+  parsed.reserve(n);
+  for (size_t i = 0; i < n; i++)
+  {
+    const size_t offset = i * (kJointFieldLen + 1);
+    if (i > 0 && payload[offset - 1] != kFieldSeparator)
+    {
+      return false;
+    }
+
+    const char sign = payload[offset];
+    if (sign != '+' && sign != '-')
+    {
+      return false;
+    }
+
+    long mrad = 0;
+    for (size_t j = 1; j < kJointFieldLen; j++)
+    {
+      const char c = payload[offset + j];
+      if (!std::isdigit(static_cast<unsigned char>(c)))
+      {
+        return false;
+      }
+      mrad = mrad * 10 + (c - '0');
+    }
+    if (sign == '-')
+    {
+      mrad = -mrad;
+    }
+    parsed.push_back(mrad / 1000.0);
+  }
+
+  positions = parsed;
+  return true;
+}
 }  // namespace
   
 RoboticArmInterface::RoboticArmInterface()
@@ -111,6 +167,7 @@ CallbackReturn RoboticArmInterface::on_activate(const rclcpp_lifecycle::State &p
   // Cada elemento representa la posicion de un joint
   position_commands_ = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
   position_states_ = { 0.0, 0.0, 0.0, 0.0, 0.0 , 0.0 };
+  rx_buffer_.clear();
 
   try
   {
@@ -155,10 +212,122 @@ CallbackReturn RoboticArmInterface::on_deactivate(const rclcpp_lifecycle::State 
 hardware_interface::return_type RoboticArmInterface::read(const rclcpp::Time &time,
                                                           const rclcpp::Duration &period)
 {
-  // Open Loop Control - assuming the robot is always where we command to be
-  // Los servos que uso si reportan la posicion. habria que usar eso.
-  // aca  esta asumiendo que no hay feedback de parte de los servos.
-  position_states_ = position_commands_;
+  // Non-blocking read: only fetch the bytes already waiting in the OS buffer.
+  // LibSerial Read() with msTimeout = 0 blocks until all requested bytes arrive.
+  try
+  {
+    const int available = serial_port_.GetNumberOfBytesAvailable();
+    if (available > 0)
+    {
+      std::string chunk;
+      try
+      {
+        serial_port_.Read(chunk, static_cast<size_t>(available), kReadTimeoutMs);
+      }
+      catch (const LibSerial::ReadTimeout &)
+      {
+        // Keep whatever arrived, the rest comes in the next cycle
+      }
+      rx_buffer_ += chunk;
+    }
+  }
+  catch (...)
+  {
+    RCLCPP_ERROR_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                        "Something went wrong while reading from the port " << port_);
+    return hardware_interface::return_type::ERROR;
+  }
+
+  // Frame: STX | LEN | CID | FS | payload | ETX | LRC
+  // Invalid frame -> drop 1 byte and resync. Incomplete frame -> wait for next read().
+  while (true)
+  {
+    // 1. Drop everything before the first STX
+    const size_t stx = rx_buffer_.find(kStx);
+    if (stx == std::string::npos)
+    {
+      rx_buffer_.clear();
+      break;
+    }
+    rx_buffer_.erase(0, stx);
+
+    // 2. LEN not received yet
+    if (rx_buffer_.size() < 1 + kLenDigits)
+    {
+      break;
+    }
+
+    // 3. LEN must be 4 digits within range. The STX may be a false one (e.g. an LRC equal to 0x02)
+    size_t len = 0;
+    bool len_ok = true;
+    for (size_t i = 1; i <= kLenDigits; i++)
+    {
+      const char c = rx_buffer_[i];
+      if (!std::isdigit(static_cast<unsigned char>(c)))
+      {
+        len_ok = false;
+        break;
+      }
+      len = len * 10 + (c - '0');
+    }
+    if (!len_ok || len < kMinLen || len > kMaxLen)
+    {
+      rx_buffer_.erase(0, 1);
+      continue;
+    }
+
+    // 4. Frame not complete yet
+    const size_t frame_size = 1 + kLenDigits + len;
+    if (rx_buffer_.size() < frame_size)
+    {
+      break;
+    }
+
+    // 5. ETX in place and LRC (XOR from LEN to ETX) matches
+    char lrc = 0;
+    for (size_t i = 1; i < frame_size - 1; i++)
+    {
+      lrc ^= rx_buffer_[i];
+    }
+    if (rx_buffer_[frame_size - 2] != kEtx || rx_buffer_[frame_size - 1] != lrc)
+    {
+      rx_buffer_.erase(0, 1);
+      continue;
+    }
+
+    // 6. Valid frame: take it out of the buffer and process it
+    const size_t body_start = 1 + kLenDigits;
+    const char cid = rx_buffer_[body_start];
+    const bool fs_ok = rx_buffer_[body_start + 1] == kFieldSeparator;
+    const std::string payload = rx_buffer_.substr(body_start + 2, len - kMinLen);
+    rx_buffer_.erase(0, frame_size);
+
+    if (!fs_ok)
+    {
+      RCLCPP_WARN(rclcpp::get_logger("RoboticArmInterface"), "Frame without FS after CID, dropped");
+      continue;
+    }
+
+    switch (cid)
+    {
+      case 'M':
+        // If several "M" arrived, the last one wins
+        if (!parseJointPositions(payload, position_states_))
+        {
+          RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                             "Malformed M payload, dropped: " << payload);
+        }
+        break;
+      case 'E':
+        RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"), "ESP32 event: " << payload);
+        break;
+      default:
+        RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                           "Unknown CID '" << cid << "', frame dropped");
+        break;
+    }
+  }
+
   return hardware_interface::return_type::OK;
 }
 
