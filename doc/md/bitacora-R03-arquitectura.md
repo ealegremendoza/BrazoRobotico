@@ -104,6 +104,44 @@ STX | LEN | S | FS | param_init (opcional) | ETX | LRC
 
 **Cancelar la trayectoria en curso de inmediato.** Mientras el brazo está detenido, el `joint_trajectory_controller` sigue avanzando y `write()` sigue mandando esos objetivos (el ESP32 los ignora). Al cancelar, el controller sostiene la posición **medida**, que es real porque `read()` usa el feedback de los servos (`[R09]`). Así, después de la `S`, el plan a home parte de donde el brazo realmente quedó y no hay salto.
 
+### Nodo `arm_supervisor`
+
+La lógica de parada, `S` y home va en un **nodo nuevo**, no en el `task_server`:
+
+1. **El `task_server` no es el único que mueve el brazo:** RViz (Plan & Execute) y `slider_control` hablan directo con `move_group` o con los controllers. Si la parada viviera en el `task_server`, un movimiento desde RViz no se cancelaría.
+2. **Responsabilidades distintas:** el `task_server` ejecuta tareas; el supervisor vigila el estado del sistema.
+3. **Tiene que estar siempre vivo**, aunque el `task_server` no se lance.
+
+| Nodo | Responsabilidad |
+|---|---|
+| `arm_supervisor` (nuevo) | Máquina de estados del brazo (DETENIDO / INICIALIZADO / OPERANDO). Manda `S` y va a home. Al recibir la parada, cancela la trayectoria activa **del controller** (sin importar quién la mandó). Publica el estado del sistema. |
+| `task_server` | Ejecuta tareas. Consulta el estado y rechaza goals si el brazo no está en OPERANDO. |
+
+**No es lifecycle node:**
+
+- No toma recursos propios (el puerto lo tiene el plugin): no hay nada que abrir en `on_configure` ni liberar en `on_cleanup`.
+- Evita mezclar dos máquinas de estados: la del **brazo** (DETENIDO/INICIALIZADO/OPERANDO) y la del **nodo** (`unconfigured`/`inactive`/`active`).
+- Un supervisor desactivable es un riesgo: en `inactive` dejaría de cancelar trayectorias ante una parada.
+- Donde sí encaja lifecycle es en el plugin (pendiente de `[R09]`: abrir el puerto en `on_configure`). Reconsiderar si el supervisor llegara a tomar un recurso propio.
+
+### Comunicación plugin ↔ `arm_supervisor`
+
+El puerto serie lo tiene el plugin `RoboticArmInterface`, que no es un nodo: corre dentro del `controller_manager`. El curso no resuelve esto (el plugin del arduinobot no publica ni usa GPIO: no tiene botones ni eventos).
+
+Opciones evaluadas (verificadas en Jazzy):
+
+| | A: topics desde el plugin | B: GPIO + `GpioCommandController` |
+|---|---|---|
+| Parecido a `[R10]` | Alto (publisher/subscriber como `simple_serial_*`) | Bajo |
+| Qué se toca | Solo el plugin | Plugin + xacro (`<gpio>`) + YAML de controllers |
+| Formato | Libre (p. ej. `String` con el código) | Solo `double` |
+| A cuidar | `RealtimePublisher`: `read()` corre en el loop de tiempo real | Lo resuelve el controller |
+
+**Decisión: opción A** (más simple, patrón conocido, todo contenido en el plugin). B es la más idiomática de `ros2_control`; queda como alternativa si A se complica.
+
+- **Eventos (`E` → supervisor):** en `on_init`, publisher de tiempo real (`realtime_tools::RealtimePublisher`) creado con `get_node()` (`hardware_component_interface.hpp:580` en Jazzy), en un topic tipo `/esp32/events`. `read()` publica cada `E` parseado.
+- **Start (supervisor → `S`):** suscripción a un topic tipo `/esp32/start`. El callback solo levanta una **bandera atómica**; `write()` la consume, arma la trama `S` y la manda. La escritura al puerto sigue pasando solo por `write()` y nunca se cruza con una `M`.
+
 ### Pendiente
 
 Tabla de códigos de `E`:
