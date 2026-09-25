@@ -135,6 +135,7 @@ La lógica de parada, `S` y home va en un **nodo nuevo**, no en el `task_server`
 |---|---|
 | `arm_supervisor` (nuevo) | Máquina de estados del brazo (DETENIDO / INICIALIZADO / OPERANDO). Manda `S` y va a home. Al recibir la parada, cancela la trayectoria activa **del controller** (sin importar quién la mandó). Publica el estado del sistema. |
 | `task_server` | Ejecuta tareas. Consulta el estado y rechaza goals si el brazo no está en OPERANDO. |
+| `recording_manager` (nuevo) | Persistencia de grabaciones (waypoints + gripper): servicios `save`, `list`, `get`, `delete`. |
 
 **No es lifecycle node:**
 
@@ -229,7 +230,7 @@ Registros relevantes del STS3215 (`doc/datasheets/ST3215 memory register map-EN.
   - Payload: `msg1 FS msg2 FS ... FS msgN`, cada mensaje de hasta **15 caracteres** (en un LCD de 20 columnas deja 5 para prefijo `1: ` y cursor `>`).
   - Una pantalla completa (LCD 20×4) son 4 mensajes: payload 4×15 + 3 = 63, LEN 67. No entraba con el tope de LEN = 64 (payload máx. 60); **se subió el tope a 128** (`kMaxLen` en el plugin y en el firmware). Es un límite de cordura del parser: subirlo no rompe nada. A 115200, ~130 bytes ≈ 11 ms, y `D` solo se manda al cambiar la pantalla.
   - Mensajes en **ASCII imprimible**: no pueden contener `0x02`, `0x03` ni `0x1C` (romperían la trama), y el ROM del HD44780 no tiene `ñ` ni tildes en las posiciones estándar.
-- **Quién graba (propuesto, sin confirmar):** el `arm_supervisor` decide cuándo capturar un waypoint (orquestación, ya escucha los `E`); un nodo nuevo `recording_manager` guarda/lista/lee/borra grabaciones en disco con servicios (`save`, `list`, `get`, `delete`). Alineado con R6.1 (módulos separados: grabación, gestión, reproducción…). Tradeoff: un nodo más.
+- **Quién graba (decidido):** el `arm_supervisor` decide cuándo capturar un waypoint (orquestación, ya escucha los `E`); un nodo nuevo y **aparte**, `recording_manager`, guarda/lista/lee/borra grabaciones en disco con servicios (`save`, `list`, `get`, `delete`). Alineado con R6.1 (módulos separados: grabación, gestión, reproducción…) y permite cambiar el formato de almacenamiento sin tocar la lógica de estados. Tradeoff: un nodo más para lanzar y mantener. Pendiente: formato del archivo y definición de los servicios.
 - Ajustar la definición de trayectoria en `requisitos.md`.
 
 ## Nodos del sistema
