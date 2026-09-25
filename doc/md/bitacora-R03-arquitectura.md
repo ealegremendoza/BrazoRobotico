@@ -46,6 +46,68 @@ flowchart TB
 3. La computadora integrada (ROS 2) decide: la aplicación elige qué hacer (grabar, reproducir), MoveIt2 planifica cómo moverse y `ros2_control` lo traduce a comandos.
 4. Las dos mitades hablan por UART con el protocolo propio (tramas `M`, `E`, `S`, `D`).
 
+### Stack por capas (hardware abajo, aplicación arriba)
+
+```mermaid
+flowchart TB
+    subgraph L7[7 - Aplicacion]
+        SUP[arm_supervisor]
+        REC[recording_manager]
+        TS[task_server]
+        UI[RViz / consola Linux - opcional]
+    end
+
+    subgraph L6[6 - Planificacion de movimiento - MoveIt2]
+        MG[move_group]
+        MPY[MoveItPy]
+    end
+
+    subgraph L5[5 - Control - ros2_control]
+        JTC[arm_controller y gripper_controller]
+        JSB[joint_state_broadcaster]
+        RSP[robot_state_publisher]
+    end
+
+    subgraph L4[4 - Interfaz de hardware]
+        PLUGIN[RoboticArmInterface - plugin C++]
+    end
+
+    subgraph L3[3 - Comunicacion]
+        UART[UART 115200 - tramas M, E, S, D]
+    end
+
+    subgraph L2[2 - Firmware ESP32]
+        FW[Estados, parada de emergencia, torque, display]
+    end
+
+    subgraph L1[1 - Hardware]
+        SERVOS[Servos STS3215]
+        PANEL[Botonera, LCD 20x4, potenciometro]
+    end
+
+    TS --> MPY
+    UI --> MG
+    MG --> JTC
+    MPY --> JTC
+    JTC --> PLUGIN
+    PLUGIN --> UART
+    UART --> FW
+    FW --> SERVOS
+    FW --> PANEL
+```
+
+De abajo hacia arriba:
+
+1. **Hardware:** servos e interfaz física del usuario.
+2. **Firmware ESP32:** lo crítico en tiempo real (parada de emergencia, torque, display).
+3. **Comunicación:** protocolo propio por UART.
+4. **Interfaz de hardware:** el plugin que traduce entre tramas y ROS.
+5. **Control:** `ros2_control` sigue trayectorias y publica el estado de los joints.
+6. **Planificación:** MoveIt2 calcula cómo moverse; dos entradas: `move_group` (RViz) y MoveItPy (`task_server`).
+7. **Aplicación:** la lógica del proyecto (supervisión, grabaciones, tareas).
+
+Las flechas muestran el camino de un comando de movimiento hacia abajo; la información también sube (posiciones, eventos), detallado en el diagrama de nodos y topics.
+
 ### Nodos, topics, actions y servicios (modo real)
 
 Zoom de la caja "Computadora integrada". Borde y flechas punteadas: planificado, sin implementar. Formas: rectángulo = nodo, redondeado = topic, doble borde = action, hexágono = servicio.
