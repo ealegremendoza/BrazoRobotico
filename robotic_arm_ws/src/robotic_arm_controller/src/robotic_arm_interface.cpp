@@ -24,7 +24,7 @@ constexpr long kMaxJointMrad = 3142;
 // LEN: 4 ASCII digits, counts CID + FS + payload + ETX + LRC
 constexpr size_t kLenDigits = 4;
 constexpr size_t kMinLen = 4;   // CID + FS + ETX + LRC, empty payload
-constexpr size_t kMaxLen = 64;  // parser sanity cap, a 6-joint "M" has LEN 39
+constexpr size_t kMaxLen = 128;  // parser sanity cap, a full LCD "D" frame (4 x 15 chars) has LEN 67
 // Joint field in "M": sign + 4 digits, e.g. "+1571"
 constexpr size_t kJointFieldLen = 5;
 // Safety net only: read() asks for bytes already available, so it never waits
