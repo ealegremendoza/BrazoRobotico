@@ -10,6 +10,122 @@ El objetivo original era solo definir los nodos; se amplió porque el inventario
 
 Referencia: `Section9_Build/arduinobot_ws/src` del curso (la sección más completa, con robot real).
 
+## Diagramas de arquitectura
+
+### Vista general (por capas)
+
+```mermaid
+flowchart TB
+    USER([Usuario])
+
+    subgraph HW[Brazo robotico]
+        PANEL[Botonera, LCD y potenciometro]
+        ESP[ESP32 - seguridad y control de servos]
+        SERVOS[Servos STS3215]
+    end
+
+    subgraph PC[Computadora integrada - ROS 2]
+        APP[Aplicacion - supervisor, grabaciones y tareas]
+        MOTION[Planificacion de movimiento - MoveIt2]
+        CTRL[Control - ros2_control]
+    end
+
+    USER --> PANEL
+    USER -.->|opcional| APP
+    PANEL --> ESP
+    ESP --> SERVOS
+    ESP -->|UART - protocolo propio| CTRL
+    CTRL --> ESP
+    CTRL -->|eventos de botones| APP
+    APP --> MOTION
+    MOTION --> CTRL
+```
+
+1. El usuario opera el brazo desde la botonera (la consola de Linux es opcional).
+2. El ESP32 resuelve lo inmediato y crítico: lee la botonera, maneja los servos y ejecuta la parada de emergencia sin depender de la PC.
+3. La computadora integrada (ROS 2) decide: la aplicación elige qué hacer (grabar, reproducir), MoveIt2 planifica cómo moverse y `ros2_control` lo traduce a comandos.
+4. Las dos mitades hablan por UART con el protocolo propio (tramas `M`, `E`, `S`, `D`).
+
+### Nodos, topics, actions y servicios (modo real)
+
+Zoom de la caja "Computadora integrada". Borde y flechas punteadas: planificado, sin implementar. Formas: rectángulo = nodo, redondeado = topic, doble borde = action, hexágono = servicio.
+
+```mermaid
+flowchart LR
+    subgraph CM[controller_manager]
+        PLUGIN[RoboticArmInterface - hardware plugin]
+        JSB[joint_state_broadcaster]
+        ARM[arm_controller]
+        GRIP[gripper_controller]
+    end
+    RSP[robot_state_publisher]
+    MG[move_group]
+    RVIZ[rviz2 - opcional use_rviz]
+    TS[task_server - MoveItPy]
+    SUP[arm_supervisor]
+    REC[recording_manager]
+    ESP[ESP32 - UART M E S D]
+
+    T_JS(["/joint_states"])
+    T_RD(["/robot_description"])
+    T_TF(["/tf"])
+    T_EV(["/esp32/events"])
+    T_ST(["/esp32/start"])
+    T_DI(["/esp32/display"])
+    T_SS(["/arm_supervisor/state"])
+
+    A_ARM[["/arm_controller/follow_joint_trajectory"]]
+    A_GRIP[["/gripper_controller/follow_joint_trajectory"]]
+    A_MOVE[["/move_action"]]
+    A_TASK[["/task_server"]]
+
+    S_REC{{"save, list, get, delete"}}
+
+    ESP -->|serial| PLUGIN
+    PLUGIN -->|serial| ESP
+
+    JSB --> T_JS
+    T_JS --> RSP
+    T_JS --> MG
+    T_JS --> TS
+    RSP --> T_RD
+    RSP --> T_TF
+    T_TF --> RVIZ
+
+    RVIZ --> A_MOVE
+    A_MOVE --> MG
+    MG --> A_ARM
+    MG --> A_GRIP
+    TS --> A_ARM
+    TS --> A_GRIP
+    A_ARM --> ARM
+    A_GRIP --> GRIP
+
+    PLUGIN -.-> T_EV
+    T_EV -.-> SUP
+    SUP -.-> T_ST
+    T_ST -.-> PLUGIN
+    SUP -.-> T_DI
+    T_DI -.-> PLUGIN
+    SUP -.-> T_SS
+    T_SS -.-> TS
+
+    SUP -.->|home, ejecutar grabacion| A_TASK
+    A_TASK --> TS
+    SUP -.->|cancelar ante parada| A_ARM
+    SUP -.-> S_REC
+    S_REC -.-> REC
+
+    classDef planned stroke-dasharray: 5 5
+    class SUP,REC,T_EV,T_ST,T_DI,T_SS,S_REC planned
+```
+
+- Hay dos caminos al movimiento: RViz → `move_action` → `move_group` → controllers, y `task_server` (MoveItPy, planifica en su propio proceso) → controllers directo. Por eso el supervisor cancela **en el controller**: es el único punto común.
+- El plugin es la única puerta al ESP32: baja `/esp32/start` y `/esp32/display` a tramas y sube los `E` como `/esp32/events`.
+- `/arm_supervisor/state` es un nombre provisorio; los tipos de mensaje se definen junto con las interfaces.
+
+Sintaxis Mermaid conservadora (sin `<-->`, sin flechas encadenadas, clases asignadas aparte) para que renderice en visores con versiones viejas de Mermaid. Ambos diagramas validados con `@mermaid-js/mermaid-cli`.
+
 ## Hallazgo: la tarea ya estaba casi resuelta
 
 Al comparar los dos workspaces, casi todos los paquetes del curso ya se habían portado mientras se avanzaba con `[R05]` a `[R11]`. La tarea pasó de "definir desde cero" a **cerrar el inventario**: decidir qué faltantes necesita el brazo y cuáles no.
