@@ -87,6 +87,8 @@ El lifecycle node separa **existir** (`unconfigured`), **estar listo** (`inactiv
 
 ## Nodo de prueba: `simple_lifecycle_node.py`
 
+> **Eliminado el 2026-09-25** (`[R03]`): era un ejemplo de aprendizaje dentro de `robotic_arm_remote`, un paquete del sistema real. El código está en el commit `370bab1` (`git show 370bab1`). La ruta y los comandos de abajo quedan como registro histórico.
+
 `robotic_arm_ws/src/robotic_arm_remote/robotic_arm_remote/simple_lifecycle_node.py`:
 - Hereda de `rclpy.lifecycle.Node`.
 - `on_configure`: crea la suscripción a `chatter`.
