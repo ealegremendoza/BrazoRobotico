@@ -26,6 +26,7 @@ def generate_launch_description():
                     "urdf",
                     "robotic_arm.urdf.xacro",
                 ),
+                " is_sim:=False"
             ]
         ),
         value_type=str,
