@@ -2,27 +2,29 @@
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 #include <pluginlib/class_list_macros.hpp>
 
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+
 
 namespace robotic_arm_controller
 {
 
-std::string compensateZeros(const int value)
+// Poner todas las constantes aqui dentro
+namespace
 {
-  std::string compensate_zeros = "";
-  if(value < 10){
-    compensate_zeros = "00";
-  } else if(value < 100){
-    compensate_zeros = "0";
-  } else {
-    compensate_zeros = "";
-  }
-  return compensate_zeros;
-}
+// PC <-> ESP32 frame bytes (see doc/md/bitacora-R09-ros2-control.md).
+// Not named STX/ETX/FS: FS is a macro in <sys/reg.h>.
+constexpr char kStx = '\x02';
+constexpr char kEtx = '\x03';
+constexpr char kFieldSeparator = '\x1C';
+// Joint range sent in "M": +-pi rad
+constexpr long kMaxJointMrad = 3142;
+}  // namespace
   
 RoboticArmInterface::RoboticArmInterface()
 {
 }
-
 
 RoboticArmInterface::~RoboticArmInterface()
 {
@@ -39,7 +41,6 @@ RoboticArmInterface::~RoboticArmInterface()
     }
   }
 }
-
 
 CallbackReturn RoboticArmInterface::on_init(const hardware_interface::HardwareInfo &hardware_info)
 {
@@ -61,7 +62,6 @@ CallbackReturn RoboticArmInterface::on_init(const hardware_interface::HardwareIn
 
   position_commands_.reserve(info_.joints.size()); //reserv reserva espacio para el vector
   position_states_.reserve(info_.joints.size());
-  prev_position_commands_.reserve(info_.joints.size());
 
   return CallbackReturn::SUCCESS;
 }
@@ -110,7 +110,6 @@ CallbackReturn RoboticArmInterface::on_activate(const rclcpp_lifecycle::State &p
   // Reset commands and states
   // Cada elemento representa la posicion de un joint
   position_commands_ = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-  prev_position_commands_ = { 0.0, 0.0, 0.0, 0.0, 0.0 , 0.0 };
   position_states_ = { 0.0, 0.0, 0.0, 0.0, 0.0 , 0.0 };
 
   try
@@ -166,50 +165,65 @@ hardware_interface::return_type RoboticArmInterface::read(const rclcpp::Time &ti
 hardware_interface::return_type RoboticArmInterface::write(const rclcpp::Time &time,
                                                            const rclcpp::Duration &period)
 {
-  if (position_commands_ == prev_position_commands_)
+  // Payload of "M": joint targets in mrad, fixed-width signed, separated by FS.
+  // Offsets and servo calibration are handled by the ESP32.
+  std::string payload;
+  for (size_t i = 0; i < position_commands_.size(); i++)
   {
-    // Nothing changed, do not send any command
-    return hardware_interface::return_type::OK;
+    const long mrad = std::lround(position_commands_.at(i) * 1000.0);
+    const long clamped = std::clamp(mrad, -kMaxJointMrad, kMaxJointMrad);
+    if (clamped != mrad)
+    {
+      RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                         "Joint " << i << " command " << mrad << " mrad out of range, clamped to "
+                                  << clamped);
+    }
+
+    char field[6];  // 5 chars + '\0'
+    std::snprintf(field, sizeof(field), "%+05ld", clamped);
+    if (i > 0)
+    {
+      payload += kFieldSeparator;
+    }
+    payload += field;
   }
 
-  // aca se adopta el siguiente protocolo  bDegree,sDegree,eDegree,gDegree.
-  // donde b significa base, s: shoulder, e: elbow y g:grip
+  // Frame: STX | LEN | CID | FS | payload | ETX | LRC
+  std::string body;
+  body += 'M';
+  body += kFieldSeparator;
+  body += payload;
+
+  char len[5];  // 4 digits + '\0'
+  std::snprintf(len, sizeof(len), "%04zu", body.size());
+
   std::string msg;
-  int base = static_cast<int>(((position_commands_.at(0) + (M_PI / 2)) * 180) / M_PI);
-  msg.append("b");
-  msg.append(compensateZeros(base));
-  msg.append(std::to_string(base));
-  msg.append(",");
-  int shoulder = 180 - static_cast<int>(((position_commands_.at(1) + (M_PI / 2)) * 180) / M_PI);
-  msg.append("s");
-  msg.append(compensateZeros(shoulder));
-  msg.append(std::to_string(shoulder));
-  msg.append(",");
-  int elbow = static_cast<int>(((position_commands_.at(2) + (M_PI / 2)) * 180) / M_PI);
-  msg.append("e");
-  msg.append(compensateZeros(elbow));
-  msg.append(std::to_string(elbow));
-  msg.append(",");
-  int gripper = static_cast<int>(((-position_commands_.at(3)) * 180) / (M_PI / 2));
-  msg.append("g");
-  msg.append(compensateZeros(gripper));
-  msg.append(std::to_string(gripper));
-  msg.append(",");
+  msg += kStx;
+  msg += len;
+  msg += body;
+  msg += kEtx;
+
+  // LRC: XOR of everything except STX
+  char lrc = 0;
+  for (size_t i = 1; i < msg.size(); i++)
+  {
+    lrc ^= msg[i];
+  }
+  msg += lrc;
 
   try
   {
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("RoboticArmInterface"), "Sending new command " << msg);
+    // DEBUG: runs every cycle (50 Hz) and the frame has non-printable bytes
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("RoboticArmInterface"), "Sending frame, payload " << payload);
     serial_port_.Write(msg);
   }
   catch (...)
   {
     RCLCPP_ERROR_STREAM(rclcpp::get_logger("RoboticArmInterface"),
-                        "Something went wrong while sending the message "
-                            << msg << " to the port " << port_);
+                        "Something went wrong while sending the payload "
+                            << payload << " to the port " << port_);
     return hardware_interface::return_type::ERROR;
   }
-
-  prev_position_commands_ = position_commands_;
 
   return hardware_interface::return_type::OK;
 }
