@@ -127,5 +127,5 @@ Joints separados por `FS` (`0x1C`).
 ## Pendientes
 
 - [ ] Mover la apertura del puerto serie de `on_activate` a `on_configure` (ver `[R11]`). Por ahora se sigue la estructura del curso.
-- [ ] `write()`: reemplazar el protocolo de texto del curso (`b090,s090,...`) por tramas `M`.
+- [x] `write()`: reemplazar el protocolo de texto del curso (`b090,s090,...`) por tramas `M`.
 - [ ] `read()`: usar la posición real informada por los servos en vez de lazo abierto.
