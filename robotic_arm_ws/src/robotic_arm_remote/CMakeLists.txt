@@ -23,12 +23,6 @@ install(PROGRAMS
   RENAME task_server
 )
 
-install(PROGRAMS
-  ${PROJECT_NAME}/simple_lifecycle_node.py
-  DESTINATION lib/${PROJECT_NAME}
-  RENAME simple_lifecycle_node
-)
-
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
