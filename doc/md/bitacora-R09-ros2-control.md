@@ -42,19 +42,22 @@ Esto responde `[E07]`: con display y botones, conviene desacoplar la gestión de
 Basado en el protocolo de `[E05]` (`firmware/arduino-uart-test/send_cmd.py`).
 
 ```
-STX | LEN | CID | payload | ETX | LRC
+STX | LEN | CID | FS | payload | ETX | LRC
 ```
 
 | Campo | Formato | Descripción |
 |---|---|---|
 | `STX` | `0x02` | Inicio de trama |
-| `LEN` | 4 dígitos ASCII decimal | Largo de **CID + payload** (sin contarse a sí mismo) |
+| `LEN` | 4 dígitos ASCII decimal | Largo de **CID + FS + payload** (sin contarse a sí mismo) |
 | `CID` | 1 char ASCII | Identificador de comando |
+| `FS` | `0x1C` | Separa el CID del payload |
 | `payload` | ASCII | Depende del CID |
 | `ETX` | `0x03` | Fin de trama (verificación extra para resincronizar) |
-| `LRC` | 1 byte | XOR de **LEN + CID + payload + ETX** (todo menos STX) |
+| `LRC` | 1 byte | XOR de **LEN + CID + FS + payload + ETX** (todo menos STX) |
 
-Ejemplo: `CID=D` con payload `"07"` → `LEN = "0003"`.
+Ejemplo: `CID=D` con payload `"07"` → `LEN = "0004"` (`D` + FS + `07`).
+
+**FS después del CID:** el CID es de 1 char en posición fija, así que el FS no es estrictamente necesario (el parser podría leerlo por posición). Se agrega igual para poder partir toda la trama con un solo `split(FS)` y dejar abierta la puerta a CIDs de más de un char. Costo: 1 byte por trama.
 
 ### CID
 
@@ -78,8 +81,8 @@ Largo de trama `M` (6 joints):
 
 | Unidad | Chars por joint | Trama | Tiempo a 115200 (8N1, ~87 µs/byte) |
 |---|---|---|---|
-| Counts | 4 | ~37 bytes | ~3.2 ms |
-| Miliradianes | 5 | ~43 bytes | ~3.7 ms |
+| Counts | 4 | 38 bytes | ~3.3 ms |
+| Miliradianes | 5 | 44 bytes | ~3.8 ms |
 
 La diferencia (~0.5 ms) es despreciable frente a un ciclo de 20 ms (loop a 50 Hz).
 
@@ -96,6 +99,30 @@ La PC manda `M` (objetivo); el ESP32 escribe a los servos, lee sus posiciones y 
 `read()` de `ros2_control` no puede bloquear: `write()` manda `M` en el ciclo N y `read()` del ciclo N+1 lee sin bloquear la respuesta ya llegada. Latencia: un ciclo (20 ms a 50 Hz).
 
 Los eventos `E` son asíncronos: el ESP32 los manda cuando ocurren. El parser de la PC tiene que aceptar cualquier CID en cualquier momento.
+
+## Diseño de `write()` (decidido)
+
+### Sin early return: mandar `M` en todos los ciclos
+
+El `write()` del curso no manda nada si los comandos no cambiaron. Con request/response eso rompe el feedback: sin `M` no hay respuesta, y `read()` se queda sin posición actualizada mientras el brazo está quieto (aunque alguien lo empuje o el gripper choque). Además, "no hay respuesta" deja de servir para detectar una desconexión.
+
+Costo de mandar siempre: 44 bytes × 50 Hz = 2200 B/s, menos del 20 % de lo que da 115200 baudios (~11520 B/s). Mandar el mismo objetivo repetido no afecta al servo.
+
+Al sacarlo, `prev_position_commands_` deja de tener uso.
+
+### Sin offsets ni inversiones en la PC
+
+Se eliminan las cuentas del curso (`(pos + π/2) * 180/π`, `180 - ...` en el shoulder), que compensaban el montaje de los servos del arduinobot. La PC manda el ángulo del joint en mrad tal cual; toda la calibración de hardware vive en el ESP32.
+
+### Conversión y formato de cada joint
+
+1. `rad * 1000` → `std::lround` (redondeo al más cercano; `static_cast<int>` trunca hacia cero, con error de hasta 1 mrad y sesgado).
+2. `std::clamp` a ±3142, con `RCLCPP_WARN` si recorta (un valor fuera de ±π indica un bug más arriba). Sin clamp, `+12000` daría 6 chars y rompería la trama.
+3. `snprintf` con `%+05ld`: `+` fuerza el signo, `0` rellena con ceros, `5` es el ancho **incluyendo el signo** (`-785` → `-0785`, `1571` → `+1571`). `%ld` porque `lround` devuelve `long`.
+
+Pérdida por redondeo: máx 0.5 mrad ≈ 0.029°, unas 3 veces menor que la resolución del STS3215 (2π/4096 ≈ 1.53 mrad ≈ 0.088°). El límite es el servo, no la trama.
+
+Joints separados por `FS` (`0x1C`).
 
 ## Pendientes
 
