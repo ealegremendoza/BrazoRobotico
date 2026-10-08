@@ -1,6 +1,6 @@
 # Backlog de Tareas
 
-_Última actualización: 2026-09-25_
+_Última actualización: 2026-10-08_
 
 ## Cómo usar este documento
 - Agregar tareas nuevas bajo la categoría correspondiente (o crear una nueva sección si hace falta).
@@ -17,8 +17,8 @@ _Última actualización: 2026-09-25_
 - [x] **[E04]** Averiguar cómo comandar el driver de motores vía TX-RX — ver `doc/md/bitacora-E04-protocolo-driver.md` (protocolo Feetech/Dynamixel-like, header 0xFF 0xFF + ID + length + instrucción + parámetros + checksum)
 - [x] **[E05]** Probar el código del ESP32 para manejar TX-RX con un Arduino Nano; programar el Arduino Nano para que pueda enviar y recibir mensajes por los pines TX-RX
 - [ ] **[E06]** (Depende de E01) Hacer un código en el ESP32 que traduzca los comandos recibidos de la computadora principal en los comandos que precisa el driver de los motores; estudiar el código Python de ejemplo
-- [ ] **[E07]** Evaluar si hace falta realmente desacoplar la gestión del driver de motores hacia el ESP32, o si está bien como está
-- [ ] **[E08]** (Depende de E07) Hacer un nuevo script de Python para delegar la parte de gestión del driver de motores al ESP32
+- [x] **[E07]** Evaluar si hace falta realmente desacoplar la gestión del driver de motores hacia el ESP32, o si está bien como está — ver `doc/md/bitacora-R09-ros2-control.md` (sí: protocolo propio PC↔ESP32 por display/botones, parada de emergencia latcheada y calibración en el ESP32)
+- [x] ~~**[E08]** (Depende de E07) Hacer un nuevo script de Python para delegar la parte de gestión del driver de motores al ESP32~~ — **cancelada**: la delegación al ESP32 ya la hace el plugin C++ de `[R09]` (tramas `M`); lo que falta del lado ESP32 es `[E06]`
 
 ## 🦾 Brazo Robótico
 
