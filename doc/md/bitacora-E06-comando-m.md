@@ -17,13 +17,16 @@ El resto del firmware (máquina de estados, parada de emergencia, comandos `E`/`
   idf.py set-target esp32
   cp ../esp32_bridge/.gitignore .
   ```
-- **`sdkconfig` no se versiona** (lo ignora el `.gitignore`, igual que en `esp32_bridge`): lo configurado con `menuconfig` no viaja con el repo. Pendiente: agregar un `sdkconfig.defaults` versionado con lo esencial (target, pines, baudrates).
+- **`sdkconfig` no se versiona** (lo ignora el `.gitignore`, igual que en `esp32_bridge`): lo configurado con `menuconfig` no viaja con el repo. Lo esencial (target + consola) va en `sdkconfig.defaults`, versionado.
+- **`sdkconfig.defaults`:** mismo formato que `sdkconfig` (`CONFIG_X=valor`, `#` comentarios); solo las opciones elegidas a mano, no las derivadas (`CONFIG_ESP_CONSOLE_UART=y`, `..._UART_NUM=1`) ni los alias deprecados (`CONFIG_CONSOLE_UART_*`). Verificado generando un `sdkconfig` desde cero solo con este archivo.
+- **Prioridad por opción:** `sdkconfig` > `sdkconfig.defaults` > default del Kconfig. Si `sdkconfig` ya existe, cambiar el `.defaults` **no lo modifica** (hay que borrar `sdkconfig` o cambiarlo también en `menuconfig`). Al cambiar algo en `menuconfig` que se quiera conservar, copiarlo al `.defaults`.
+- `idf.py save-defconfig` genera el `.defaults` con todo lo que difiere del default, pero **sobrescribe** el archivo y borra los comentarios: usarlo solo para ver diferencias.
 
 ## Placa
 
 La DevKitC de 38 pines (WROOM) está ocupada en otra cosa; E06 se desarrolla sobre una placa genérica de 30 pines (tipo "DevKit V1"). Fotos: `doc/img/esp32.jpeg`, `doc/img/esp32-wroom-32.jpeg`, `doc/img/esp32-vs-esp32wroom.jpeg`.
 
-Pinout de referencia de la placa de 30 pines (DevKit V1): https://lastminuteengineers.com/esp32-pinout-reference/
+Pinout de referencia de la placa de 30 pines (DevKit V1): https://lastminuteengineers.com/esp32-pinout-reference/ — imagen en `doc/datasheets/esp32_30pin_pinout.png`
 
 Comparación (`esptool.py --port <puerto> flash_id` + serigrafía):
 
@@ -159,11 +162,12 @@ El ESP32 no necesita guardar calibración: no hace falta SD ni que la PC la env�
 - [x] Crear `firmware/esp32_arm` (`set-target esp32`, `.gitignore`)
 - [x] Elegir los pines de la consola (UART1): TX 14, RX 27
 - [x] `board_pins.h` con puertos, pines y baudrates de UART0 (PC) y UART2 (servos)
-- [ ] Agregar a `board_pins.h` los pines de UART0 (TX 1, RX 3) y reconectarlos con `uart_set_pin()`
-- [ ] Configurar la consola en `menuconfig` (UART1, TX 14, RX 27)
+- [x] Agregar a `board_pins.h` los pines de UART0 (TX 1, RX 3), con comentario de por qué son fijos
+- [ ] Reconectar los pines de UART0 con `uart_set_pin()` en el código
+- [x] Configurar la consola en `menuconfig` (UART1, TX 14, RX 27)
 - [ ] Verificar con el analizador si GPIO14 saca PWM durante un reset
 - [ ] Puerto serie configurable en el plugin (fuera de E06, pasó al backlog como `[R13]`): hoy `/dev/ttyACM0` está fijo en `robotic_arm_ros2_control.xacro`; con la DevKitC (CP2102) es `/dev/ttyUSB0` y no conectaría. Opciones: argumento del launch o regla udev con nombre fijo (p. ej. `/dev/robotic_arm`)
 - [ ] Migrar `board_pins.h` a `Kconfig.projbuild` (pines y baudrates de UART2, baudrate de UART0; puertos y pines de UART0 quedan fijos). Ojo: el rango `1200..115200` de `esp32_bridge` rechaza 1000000
-- [ ] `sdkconfig.defaults` versionado (target + consola). `Kconfig.projbuild` **crea** opciones; `sdkconfig.defaults` **elige valores** (propios y de ESP-IDF); `sdkconfig` es el resultado local
+- [x] `sdkconfig.defaults` versionado (target + consola). `Kconfig.projbuild` **crea** opciones; `sdkconfig.defaults` **elige valores** (propios y de ESP-IDF); `sdkconfig` es el resultado local
 - [ ] `mrad_to_counts(int32_t mrad)` con redondeo simétrico
 - [ ] Comprar adaptador USB-serie TTL 3.3V
