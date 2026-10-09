@@ -193,6 +193,44 @@ Además:
 - **+π → 4096**, una más que la última cuenta válida: se recorta a 4095. Sin el recorte, 4096 (`0x1000`) en 12 bits se lee como 0, el extremo opuesto (con `wrist_roll`, límites 0..4095, daría casi una vuelta al revés).
 - Verificado con un test en la PC (`gcc`) contra `2048 + round()` en punto flotante para cada mrad de −3500 a 3500: 0 diferencias.
 
+## Parser de tramas (`main/frame_parser.{h,c}`)
+
+Mismo formato y mismo algoritmo de resincronización que el `read()` del plugin (ver `doc/md/bitacora-R09-ros2-control.md`), para que los dos lados se comporten igual.
+
+Decisiones:
+
+- **Separado de la UART:** el parser recibe bytes sin saber de dónde vienen. Se testea en la PC con cualquier secuencia (tramas partidas, basura, LEN corrupto), casos difíciles de provocar con hardware. La tarea que lee UART0 solo le pasa bytes; lo que hace cada trama (convertir con `servo_units`, `SYNC_WRITE`) es otra capa.
+- **Estado en un struct (`frame_parser_t`) pasado por puntero:** el equivalente C del `rx_buffer_` miembro de clase del plugin. Sin `static` globales: cada test arranca con `frame_parser_init()` limpio, y otra línea serie tendría su propio struct.
+- **Buffer lineal de tamaño fijo, no circular ni `malloc`:**
+  - Fijo: en un firmware que corre semanas, la memoria dinámica fragmenta el heap.
+  - Lineal con `memmove` al consumir: la trama candidata siempre empieza en `buf[0]` y está contigua (el LRC y el payload se leen directo). Un circular parte tramas en el borde (índices `% SIZE`, payload no contiguo, bugs que solo aparecen en el borde). Copiar ≤133 bytes ~50 veces/s es despreciable.
+  - El buffer circular ya existe una capa abajo: el ring buffer de 1024 de `uart_driver_install()`.
+  - Tamaño `FRAME_MAX_SIZE = FRAME_STX_SIZE + FRAME_LEN_DIGITS + FRAME_MAX_LEN` = 1 + 4 + 128 = **133** (calculado: si sube el tope de LEN, el buffer acompaña). `SIZE` = trama completa, `LEN` = el campo del protocolo.
+- **`feed()` acepta bloques de cualquier tamaño:** el tope de 133 vale para una trama *esperando*, no para "lo que había + lo que llegó" (25 pendientes + un bloque de 200 = 225). `feed()` copia solo lo que entra, parsea (libera espacio) y repite: nunca desborda, sin depender del que llama.
+- **Entrega por callback**, no byte a byte: `frame_handler_t(cid, payload, payload_len, ctx)`.
+  - El algoritmo de R09 no es una máquina de estados clásica sino **buffer + reescaneo**: ante un error descarta 1 byte y vuelve a buscar en lo que ya tenía. Una máquina de estados (WAIT_STX → LEN → BODY) descartaría la trama entera y perdería una trama buena que empezaba adentro.
+  - Con reescaneo, un solo byte nuevo puede completar **dos** tramas; un `feed()` byte a byte solo podría devolver una y la otra quedaría atrapada hasta que llegue otro byte.
+  - El callback recibe el CID separado (el que maneja hace `switch (cid)`); `payload` apunta al buffer del parser y solo vale durante la llamada; `ctx` es el estado del que maneja (en el test, la lista de tramas recibidas).
+- Además de ETX y LRC, valida que el **FS** esté en su posición.
+
+**LEN corrupto pero en rango:** con un STX espurio seguido de `0020`, el parser espera 25 bytes que no son de esa trama. Las tramas buenas que vienen detrás **no se pierden, se demoran**: cuando llegan bytes suficientes, la candidata falsa falla ETX/LRC, se descarta de a 1 byte y aparecen. La espera está acotada por `FRAME_MAX_LEN` (un `9039` se rechaza enseguida por fuera de rango).
+
+## Tests en la PC (`test_host/`)
+
+Funciones puras (sin hardware): se compilan con `gcc`, sin ESP-IDF. Desde `firmware/esp32_arm`:
+
+```
+gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
+    test_host/test_frame_parser.c main/frame_parser.c -o /tmp/test_frame_parser && /tmp/test_frame_parser
+
+gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
+    test_host/test_servo_units.c main/servo_units.c -lm -o /tmp/test_servo_units && /tmp/test_servo_units
+```
+
+- `test_frame_parser.c` (12 casos): trama `M` de 44 bytes con LEN `0039`, byte a byte, incompleta que espera, 50 tramas en un solo bloque (más grande que el buffer), basura/log antes, 1000 bytes sin STX, LRC/ETX/FS malos, trama buena dentro de una corrupta, LEN corrupto que demora, LEN inválidos (`9999`, `0129`, `0003`, `00a9`) y límites (LEN 4 y 128), dos tramas cortadas en cada punto posible.
+- `test_servo_units.c`: valores conocidos, contra `round()` en punto flotante en todo el rango, extremos sin overflow (`INT32_MIN/MAX`), ida y vuelta.
+- ASan/UBSan detectan accesos fuera del buffer y overflow de enteros que un test "pasa/falla" no vería.
+
 ## Pendientes
 
 - [x] Crear `firmware/esp32_arm` (`set-target esp32`, `.gitignore`)
@@ -209,7 +247,10 @@ Además:
 - [x] `mrad_to_counts(int32_t mrad)` con redondeo simétrico (`main/servo_units.c`)
 - [x] `counts_to_mrad(int32_t counts)`: inversa, mismo redondeo, clamp de entrada a 0..4095, salida en [−3142, 3140] mrad. Test en la PC: 0 diferencias contra `round()` en punto flotante e ida y vuelta exacta para las 4096 cuentas (error máximo mrad → cuentas → mrad: 2 mrad, solo en +π por el recorte a 4095)
 - [x] Flash de 4MB en `sdkconfig.defaults` (`CONFIG_ESPTOOLPY_FLASHSIZE_4MB`): las dos placas tienen 4MB según `esptool`, pero ESP-IDF asume 2MB por defecto (dejaba la mitad sin usar)
-- [ ] Parsear las tramas `M` de la PC (protocolo de `[R09]`)
+- [x] Parser de tramas del protocolo de `[R09]` (`frame_parser.{h,c}`), con tests en la PC
+- [x] Tests de `servo_units` guardados en `test_host/` (antes eran archivos sueltos en la carpeta temporal)
+- [ ] Parsear el payload de `M` (6 joints de 5 chars con signo, separados por FS) y convertir con `mrad_to_counts()`
+- [ ] Tarea que lee UART0 y alimenta el parser
 - [ ] Enviar `SYNC_WRITE` al bus de servos
 - [ ] Leer las posiciones reales y responder con una `M` de feedback
 - [ ] Comprar adaptador USB-serie TTL 3.3V
