@@ -1,0 +1,36 @@
+menu "Robotic Arm Configuration"
+
+    config ARM_PC_UART_BAUD_RATE
+        int "PC link baud rate (UART0)"
+        range 9600 5000000
+        default 115200
+        help
+            Baud rate of the PC <-> ESP32 protocol over USB (UART0).
+            Must match the ros2_control plugin (robotic_arm_interface.cpp).
+            UART0 port and pins are fixed by the board's USB chip and are not configurable.
+
+    config ARM_SERVO_UART_BAUD_RATE
+        int "Servo bus baud rate (UART2)"
+        range 9600 5000000
+        default 1000000
+        help
+            Baud rate of the servo driver bus. Must match the baud rate stored in the
+            servos' EEPROM (1000000 for the STS3215, see STServo_Python/calibrate-arm.py).
+
+    config ARM_SERVO_UART_TX_GPIO
+        int "Servo bus TX GPIO (UART2)"
+        range 0 SOC_GPIO_OUT_RANGE_MAX
+        default 17
+        help
+            GPIO wired to the servo driver's RX line. Avoid strapping pins
+            (0, 2, 5, 12, 15) and flash pins (6-11).
+
+    config ARM_SERVO_UART_RX_GPIO
+        int "Servo bus RX GPIO (UART2)"
+        range 0 SOC_GPIO_IN_RANGE_MAX
+        default 16
+        help
+            GPIO wired to the servo driver's TX line. Avoid strapping pins
+            (0, 2, 5, 12, 15) and flash pins (6-11).
+
+endmenu
