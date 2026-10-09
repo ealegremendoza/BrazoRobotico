@@ -413,11 +413,35 @@ Protocolo validado contra el manual oficial y el mapa de registros del ST3215: v
 
 ⚠️ Desde este firmware cada `M` mueve los motores. Los valores de las pruebas anteriores (`1571 -785 0 -3142 3142 -1`) mandan joints a los extremos: no usarlos.
 
-1. **Driver sin alimentar**, analizador en GPIO17 (Async Serial a 1000000): mandar una trama y ver el paquete `FF FF FE 34 83 29 07 ...` de 56 bytes.
-2. **Driver alimentado**, brazo despejado y la mano cerca del interruptor: `./tools/send_m.py 0 0 0 0 0 0` (pose cero de calibración).
-3. Movimientos chicos de un solo joint: `./tools/send_m.py 200 0 0 0 0 0`.
+**Cableado** (todo apagado; verificado con la wiki de Waveshare, el esquemático y la serigrafía, ver "Cableado ESP32 ↔ driver" en `doc/md/bitacora-E03-adaptador-logico.md`):
+
+| ESP32 (placa de 30 pines) | Conecta a |
+|---|---|
+| `TX2` (GPIO17) | `TX` del conector `UART` del driver (**sin cruzar**) |
+| `RX2` (GPIO16) | `RX` del driver |
+| `GND` | `GND` del driver (obligatorio: masa común) |
+| `D14` (GPIO14) | Analizador canal 0 (consola, 115200) |
+| `D17` (GPIO17) | Analizador canal 1 (bus de servos, 1000000) |
+| `GND` | GND del analizador |
+
+- **Jumper amarillo del driver en A** (`UART – SERVO`). Con `STServo_Python` estaba en B (USB).
+- No unir 3.3V ni 5V del ESP32 con el driver: el ESP32 se alimenta por su USB; el driver, por su fuente de 9~12.6V.
+
+**Pasos** (desde `firmware/esp32_arm`, con `. ~/esp/esp-idf/export.sh`):
+
+1. **Driver sin alimentar:** `idf.py -p /dev/ttyACM0 build flash` y `./tools/send_m.py 0 0 0 0 0 0`. En el canal 1: `SYNC_WRITE` de 56 bytes (`FF FF FE 34 83 29 07 01 0A 00 08 00 00 2C 01 ...`) seguido del `SYNC_READ` de 14 (`FF FF FE 0A 82 38 02 01 02 03 04 05 06 ..`).
+2. **Driver alimentado**, brazo despejado y la mano cerca del interruptor (va a la pose cero a ~26°/s desde donde esté): `./tools/send_m.py 0 0 0 0 0 0`. Esperado: el brazo va a la pose de calibración; `Reply M: ...` cerca de 0 y `got 1 reply frame(s)`.
+3. **Feedback en movimiento:** `./tools/send_m.py --count 150 200 0 0 0 0 0` (3 s a 50 Hz, `shoulder_pan` +200 mrad ≈ 11°). El primer valor de las respuestas tiene que subir de 0 a ~200; los demás, quedar cerca de 0.
+4. **Volver:** `./tools/send_m.py 0 0 0 0 0 0`.
 
 Con el driver **sin alimentar** ningún servo responde: la consola muestra `SYNC_READ: not every servo answered` por cada trama y `send_m.py` dice `got 0 reply frame(s)`. Es lo esperado en el paso 1. Con el driver alimentado, `send_m.py` imprime cada `M` de feedback (`Reply M: ... mrad`).
+
+| Síntoma | Causa probable |
+|---|---|
+| Paso 1 sin bytes en GPIO17 | Firmware sin grabar o canal mal conectado |
+| Brazo quieto y `0 reply frames` | TX/RX cruzados, falta GND, jumper del driver en B, o driver sin alimentar |
+| Brazo quieto pero **con** respuestas | Torque deshabilitado (p. ej. la UI de Python quedó en "Free"): apagar y prender la fuente |
+| Se mueve otro joint | Orden de IDs: anotar cuál se movió y revisar |
 
 ## `M` de feedback (lectura de posiciones)
 
