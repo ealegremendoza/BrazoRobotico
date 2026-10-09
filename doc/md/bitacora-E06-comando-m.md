@@ -392,7 +392,7 @@ FF FF | FE | Length | 83 | 29 | 07 | [ID acc posL posH 0 0 spdL spdH] × 6 | che
 - Broadcast: los servos **no responden** (fire and forget). Devuelve 0 si el buffer no alcanza o si el Length (1 byte) se desborda (más de 31 servos).
 - **Orden de joints:** el joint j del payload va al servo ID j + 1 (`shoulder_pan` = 1 … `gripper` = 6), el mismo orden de `robotic_arm_ros2_control.xacro` y de `STServo_Python`.
 - **Velocidad y aceleración en Kconfig:** `ARM_SERVO_MOVE_SPEED` (default 300 pasos/s ≈ 26°/s, máx. 3400) y `ARM_SERVO_MOVE_ACC` (default 10 = 1000 pasos/s²). Mismos defaults que `servo_control_ui.py`: lentos y seguros para la puesta en marcha. Muy bajos hacen que el brazo se atrase respecto de las trayectorias de MoveIt; ajustar después de probar.
-- Compila y el paquete coincide byte a byte con el ejemplo de `[E04]` en el test. **Sin probar con los servos todavía.**
+- Compila y el paquete coincide byte a byte con el ejemplo de `[E04]` en el test. **Probado con el brazo:** ver "Resultados de la prueba con el brazo".
 
 ### Cómo funciona `servo_bus_build_sync_write_pos()`
 
@@ -409,7 +409,7 @@ Arma en un buffer **un solo paquete** que mueve varios servos; no toca la UART. 
 
 Protocolo validado contra el manual oficial y el mapa de registros del ST3215: ver "Validación contra la documentación oficial" en `doc/md/bitacora-E04-protocolo-driver.md`.
 
-### Prueba con el brazo (pendiente)
+### Prueba con el brazo
 
 ⚠️ Desde este firmware cada `M` mueve los motores. Los valores de las pruebas anteriores (`1571 -785 0 -3142 3142 -1`) mandan joints a los extremos: no usarlos.
 
@@ -483,7 +483,40 @@ M de la PC → SYNC_WRITE (mover) → SYNC_READ (¿dónde están?) → M de feed
 - **`frame_build()`** (en `frame_parser`): arma `STX | LEN | CID | FS | payload | ETX | LRC`.
 - **`tools/send_m.py`** lee y decodifica las respuestas (mismas reglas que el parser en C) y al final dice cuántas llegaron. Descarta lo recibido durante el arranque (mensajes de la ROM por UART0).
 - Tiempos a 1 Mbaud: `SYNC_WRITE` 56 bytes + `SYNC_READ` 14 + 6 respuestas × 8 = 118 bytes ≈ 1.2 ms (el registro 7, "Return delay", es 0 por defecto). Muy por debajo del ciclo de 20 ms.
-- Sin probar con los servos todavía.
+- **`send_m_feedback()` loguea la posición real** (`Feedback: counts [...] -> mrad [...]`): con una `M` aparecen dos líneas, el objetivo y lo medido. A 50 Hz conviene pasar ambos logs a `DEBUG` más adelante.
+
+### Latencia de `pc_rx_task` (corregida)
+
+Primera prueba con el brazo: el log del ESP32 indicaba que los 6 servos respondieron (sin warning de `SYNC_READ`), pero `send_m.py` decía `got 0 reply frame(s)`.
+
+- **Causa:** `uart_read_bytes(PC_UART_PORT, chunk, 64, pdMS_TO_TICKS(20))` vuelve cuando junta los 64 bytes pedidos **o** vence el timeout. Una `M` mide 44: nunca llena los 64 y siempre esperaba el timeout (20–30 ms con el tick de 100 Hz). Latencia total: ~3.8 ms (llegada) + 20–30 ms (espera) + ~1.5 ms (bus) + ~3.8 ms (respuesta) ≈ **30–40 ms**. El script leía una sola vez a los 20 ms y cerraba: la respuesta llegaba después.
+- **Por qué importa más allá del script:** el plugin de `[R09]` corre a 50 Hz (20 ms). Con 30–40 ms la respuesta al ciclo N llegaría en el N+2; el diseño pide un ciclo.
+- **Arreglo:** bloquear esperando **1 byte** (`portMAX_DELAY`, la tarea no tiene otra cosa que hacer) y tomar lo que ya está en el buffer sin esperar (`uart_get_buffered_data_len()` + `uart_read_bytes(..., 0)`). Si la trama sigue llegando, el parser guarda lo incompleto. Latencia ≈ 10 ms.
+- **`send_m.py`:** `--reply-wait-ms` (default 200) sigue escuchando después de la última trama, y `--countdown` (default 3 s) avisa antes de mandar para tener la mano en la fuente.
+
+### Resultados de la prueba con el brazo
+
+Montaje: DevKitC WROOM en la placa base, `P17` → `TX` del driver, `P16` → `RX`, GND común, jumper en A; analizador CH0 en `P14` (consola, 115200) y CH1 en `P16` (respuestas del bus, 1000000). Fotos: `doc/img/esp32-driver-analyzer.jpeg`, `doc/img/esp32-driver-arm-analyzer.jpeg`, `doc/img/esp32-driver-arm-analyzer-2.jpeg`.
+
+1. **Driver sin alimentar** (`doc/img/analyzer-gpio14-test1-sin-brazo.png`): `M: mrad [0 0 0 0 0 0] -> counts [2048 ...]` y `SYNC_READ: not every servo answered (0 bytes received)`. Esperado.
+2. **Driver alimentado, firmware con la latencia vieja** (`doc/img/analyzer-gpio14-test1-con-brazo.png`): el brazo se movió a la pose cero y no apareció el warning (los 6 servos respondieron), pero el script no llegó a leer la respuesta.
+3. **Con la latencia corregida y el log de feedback** (`doc/img/analyzer-gpio14-test1-con-brazo-2.png`, CH1 decodificado en hex):
+
+   | Servo | Paquete en el bus | ERROR | Posición |
+   |---|---|---|---|
+   | 1 | `FF FF 01 04 00 FE 07 F5` | 0 | `0x07FE` = 2046 |
+   | 2 | `FF FF 02 04 00 5A 03 9C` | 0 | `0x035A` = 858 |
+   | 3 | `FF FF 03 04 00 09 0C E3` | 0 | `0x0C09` = 3081 |
+   | 4 | `FF FF 04 04 00 87 03 6D` | 0 | `0x0387` = 903 |
+   | 5 | `FF FF 05 04 00 44 03 AF` | 0 | `0x0344` = 836 |
+   | 6 | `FF FF 06 04 00 95 05 5B` | 0 | `0x0595` = 1429 |
+
+   Consola: `Feedback: counts [2046 858 3081 903 836 1429] -> mrad [-3 -1825 1585 -1756 -1859 -950]`. PC: `Reply M: -0003 -1825 +1585 -1756 -1859 -0950 mrad` y `got 1 reply frame(s)`.
+
+**Las tres vistas coinciden byte a byte:** los servos responden en orden de ID y sin errores, el ESP32 los interpreta bien y la PC recibe la `M` de feedback dentro de la ventana. Primera vuelta completa PC → ESP32 → servos → ESP32 → PC.
+
+- **Por qué el feedback no da 0 si se mandó la pose cero:** se lee ~1 ms después del `SYNC_WRITE`, cuando los servos recién arrancan a 26°/s: refleja dónde estaba el brazo antes de moverse. Para ver la convergencia: `./tools/send_m.py --port /dev/ttyUSB0 --count 250 0 0 0 0 0 0` (5 s a 50 Hz).
+- **Warning en la WROOM:** `spi_flash: boya detected but related driver is not linked` — su flash es Boya (fabricante `0x68` en `esptool`). ESP-IDF trae `SPI_FLASH_SUPPORT_BOYA_CHIP` desactivado en el ESP32 "para ahorrar IRAM" y usa el driver genérico, que funciona. Se silencia con `CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y` en `sdkconfig.defaults`.
 
 ## Tests en la PC (`test_host/`)
 
@@ -531,7 +564,8 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 - [x] Tarea que lee UART0 y alimenta el parser (`pc_rx_task`): probada de punta a punta con `tools/send_m.py`
 - [ ] Plugin de `[R09]`: tolerar el reset del ESP32 al abrir el puerto (sin respuestas los primeros ~300 ms)
 - [x] Enviar `SYNC_WRITE` al bus de servos (`servo_bus.{h,c}`, velocidad/aceleración en Kconfig), con tests en la PC
-- [ ] Probar el `SYNC_WRITE` con el brazo (ver "Prueba con el brazo")
+- [x] Probar el `SYNC_WRITE` con el brazo (ver "Resultados de la prueba con el brazo")
 - [x] Leer las posiciones reales (`SYNC_READ`) y responder con una `M` de feedback, con tests en la PC
-- [ ] Probar la `M` de feedback con el brazo
+- [x] Probar la `M` de feedback con el brazo: vuelta completa verificada en las tres vistas (bus, consola, PC)
+- [ ] Ver la convergencia del feedback con `--count 250` hacia la pose cero
 - [ ] Comprar adaptador USB-serie TTL 3.3V
