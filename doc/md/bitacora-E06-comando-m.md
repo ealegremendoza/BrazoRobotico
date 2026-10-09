@@ -198,7 +198,7 @@ Además:
 - [x] Elegir los pines de la consola (UART1): TX 14, RX 27
 - [x] `board_pins.h` con puertos, pines y baudrates de UART0 (PC) y UART2 (servos)
 - [x] Agregar a `board_pins.h` los pines de UART0 (TX 1, RX 3), con comentario de por qué son fijos
-- [ ] Reconectar los pines de UART0 con `uart_set_pin()` en el código
+- [x] Reconectar los pines de UART0 con `uart_set_pin()` en el código: `init_uarts()` en `esp32_arm.c` levanta UART0 (PC) y UART2 (servos) con `uart_driver_install` → `uart_param_config` → `uart_set_pin`, todo desde `board_pins.h`. RX buffer: PC 1024 (varias tramas `M`/`D`), servos 256; ambos > FIFO de 128 (mínimo de `uart_driver_install`). Sin buffer de TX (`uart_write_bytes()` bloquea hasta el FIFO). Compila; falta probar en la placa (log de arranque por GPIO14 con el analizador)
 - [x] Configurar la consola en `menuconfig` (UART1, TX 14, RX 27)
 - [ ] Verificar con el analizador si GPIO14 saca PWM durante un reset
 - [ ] Puerto serie configurable en el plugin (fuera de E06, pasó al backlog como `[R13]`): hoy `/dev/ttyACM0` está fijo en `robotic_arm_ros2_control.xacro`; con la DevKitC (CP2102) es `/dev/ttyUSB0` y no conectaría. Opciones: argumento del launch o regla udev con nombre fijo (p. ej. `/dev/robotic_arm`)
