@@ -23,6 +23,8 @@ El resto del firmware (máquina de estados, parada de emergencia, comandos `E`/`
 
 La DevKitC de 38 pines (WROOM) está ocupada en otra cosa; E06 se desarrolla sobre una placa genérica de 30 pines (tipo "DevKit V1"). Fotos: `doc/img/esp32.jpeg`, `doc/img/esp32-wroom-32.jpeg`, `doc/img/esp32-vs-esp32wroom.jpeg`.
 
+Pinout de referencia de la placa de 30 pines (DevKit V1): https://lastminuteengineers.com/esp32-pinout-reference/
+
 Comparación (`esptool.py --port <puerto> flash_id` + serigrafía):
 
 | | Placa nueva (30 pines) | DevKitC WROOM (38 pines) |
@@ -46,9 +48,22 @@ PC (ROS2) <--USB--> ESP32 <--UART TX/RX--> Driver de servos
 
 | UART | Uso | Pines | Baudrate |
 |---|---|---|---|
-| UART0 | Protocolo con la PC (USB de la placa) | USB | 115200 |
-| UART1 | Consola de logs (solo TX) | TX=21 | 115200 |
+| UART0 | Protocolo con la PC (USB de la placa) | TX=1, RX=3 (fijos: cableados al chip USB) | 115200 |
+| UART1 | Consola de logs | TX=14, RX=27 | 115200 |
 | UART2 | Bus de servos | TX=17, RX=16 (ver `[E01]`) | 1000000 |
+
+Mapa de pines completo:
+
+| Uso | Pines |
+|---|---|
+| UART0 — PC | 1, 3 |
+| UART1 — consola | TX 14, RX 27 |
+| UART2 — servos | TX 17, RX 16 |
+| ADC1 — potenciómetros (hasta 6) | 32, 33, 34, 35, 36 (VP), 39 (VN) |
+| Reservados: I2C futuro (p. ej. acelerómetro) | 21 (SDA), 22 (SCL) |
+| Reservados: SPI/SD futura (VSPI nativo) | 23 (MOSI), 19 (MISO), 18 (SCK), 5 (CS) |
+
+Puertos y pines: cada bloque UART (`UART_NUM_0/1/2`) es un solo canal con un solo dueño; los pines se eligen aparte por la matriz GPIO (`uart_set_pin()`). El puerto de los servos es fijo en el código (UART2 es el único bloque libre); hacerlo configurable solo agrega la forma de pisar la consola.
 
 ### La consola sale de UART0
 
@@ -57,21 +72,36 @@ Por defecto la consola de ESP-IDF (`ESP_LOGx`, `printf`) sale por UART0, que es 
 - Texto suelto **entre** tramas: el parser de `read()` en `[R09]` lo descarta (busca `STX`, y el texto ASCII imprimible no contiene `0x02`).
 - Un log escrito **en medio** de una trama la corrompe: falla el LRC y la trama se descarta. El ciclo de feedback se pierde sin aviso visible desde la PC.
 
-**Regla: UART0 tiene un solo dueño, el protocolo.** La consola se mueve a UART1 (`menuconfig` → `Component config → ESP System Settings → Channel for console output → Custom UART`), usando solo el pin TX.
+**Regla: UART0 tiene un solo dueño, el protocolo.** La consola se mueve a UART1 (`menuconfig` → `Component config → ESP System Settings → Channel for console output → Custom UART`).
+
+La consola se configura con opciones **de ESP-IDF** (`ESP_CONSOLE_UART_CUSTOM`, `ESP_CONSOLE_UART_CUSTOM_NUM_1`, `ESP_CONSOLE_UART_TX_GPIO`, `ESP_CONSOLE_UART_RX_GPIO`, `ESP_CONSOLE_UART_BAUDRATE`), no en `board_pins.h` ni en el Kconfig propio: las lee el bootloader y el arranque, antes de `app_main`. Un `#define` propio no mueve la consola.
 
 Los mensajes del bootloader (ROM) siguen saliendo por UART0 al arrancar; el parser los descarta y no hay tramas en vuelo en ese momento.
 
+**Efecto colateral en UART0:** al mover la consola, el bootloader desconecta GPIO1/GPIO3 de UART0 (`bootloader_console.c`: "Change default UART pins back to GPIOs"). El firmware tiene que reconectarlos con `uart_set_pin(PC_UART_PORT, 1, 3, ...)`, o la PC no recibe nada. Por eso los pines de UART0 van como constantes en `board_pins.h`.
+
 En la versión final se puede apagar la consola (`CONFIG_ESP_CONSOLE_NONE`).
 
-### Pin del TX de consola: GPIO21
+### Pines de la consola: TX GPIO14, RX GPIO27
 
-Los pines por defecto de UART1 (GPIO9/10) van a la flash; la señal se rutea a otro pin por la matriz GPIO. GPIO21:
+Los pines por defecto de UART1 (GPIO9/10) van a la flash; la señal se rutea a otros pines por la matriz GPIO. La consola custom configura **TX y RX**: si `ESP_CONSOLE_UART_RX_GPIO` queda en su default, usa **GPIO3**, el RX de UART0 (las tramas de la PC llegarían también a UART1, porque un pin de entrada puede alimentar a dos periféricos).
 
-- no es de strapping (0, 2, 5, 12, 15), no va a la flash (6-11), no es de solo entrada (34-39);
-- no es ADC: deja libre el **ADC1 (GPIO32-39) para los potenciómetros** (preferir ADC1: el ADC2 no funciona con WiFi activo);
-- no es pin nativo de VSPI (23, 19, 18, 5): quedan libres por si se agrega una SD. Igual el SPI también se puede rutear por la matriz (límite ~26 MHz full-duplex; la SD por SPI usa 20 MHz).
+Criterios:
 
-GPIO23 también era válido; se descartó solo para dejar VSPI completo. En Arduino, GPIO21/22 son el I2C por defecto; en ESP-IDF el I2C se rutea a cualquier pin.
+- **Potenciómetros solo en ADC1 (32-39).** El ADC2 lo usa el driver de WiFi: con WiFi activo, `adc_oneshot_read()` sobre ADC2 falla (`ESP_ERR_TIMEOUT`). Los pines de ADC2 siguen funcionando como **digitales**, así que sirven para UART aunque haya WiFi.
+- Evitar strapping (0, 2, 5, 12, 15), flash (6-11), I2C convencional (21/22) y VSPI nativo (23, 19, 18, 5).
+
+Descartes:
+
+| Candidato | Motivo |
+|---|---|
+| GPIO21 (TX), primera elección | Es el SDA del I2C convencional (21/22): se deja libre para un sensor futuro. En ESP-IDF el I2C se rutea a cualquier pin, pero tutoriales y librerías asumen 21/22. |
+| GPIO23 | MOSI nativo de VSPI (y no es SCL: el I2C es 21/22). |
+| Pines de solo entrada (34-39) como RX | Los ocupa el ADC1 si hay 6 potenciómetros, y **no tienen pull-up interno**: el bootloader intenta activarlo (`esp_rom_gpio_pad_pullup_only`) y el RX quedaría flotando. |
+| GPIO12 como RX | **Strapping:** define la tensión de la flash (bajo = 3.3V, alto = 1.8V). Una UART en reposo mantiene su TX en alto: con el adaptador conectado, al arrancar GPIO12 queda en alto, la flash recibe 1.8V y el ESP32 no bootea (sin ningún log). `esptool` lo muestra: "Flash voltage set by a strapping pin to 3.3V". |
+| GPIO14 como RX | Según [Random Nerd Tutorials](https://randomnerdtutorials.com/esp32-pinout-reference-gpios/) saca PWM al arrancar (lastminuteengineers no lo menciona; las fuentes no coinciden). Como RX, el PWM del ESP32 pelearía con el TX del adaptador (dos salidas en el mismo cable). |
+
+**Decisión: TX = GPIO14, RX = GPIO27.** Con los pines invertidos el diseño es seguro sea cierto o no lo del PWM: si existe, sale por TX hacia la entrada del adaptador y como mucho aparecen caracteres basura en la consola al arrancar. Pendiente: confirmar con el analizador mirando GPIO14 durante un reset.
 
 ### Cómo leer la consola
 
@@ -127,9 +157,13 @@ El ESP32 no necesita guardar calibración: no hace falta SD ni que la PC la env�
 ## Pendientes
 
 - [x] Crear `firmware/esp32_arm` (`set-target esp32`, `.gitignore`)
-- [x] Elegir el GPIO del TX de consola (UART1): GPIO21
+- [x] Elegir los pines de la consola (UART1): TX 14, RX 27
+- [x] `board_pins.h` con puertos, pines y baudrates de UART0 (PC) y UART2 (servos)
+- [ ] Agregar a `board_pins.h` los pines de UART0 (TX 1, RX 3) y reconectarlos con `uart_set_pin()`
+- [ ] Configurar la consola en `menuconfig` (UART1, TX 14, RX 27)
+- [ ] Verificar con el analizador si GPIO14 saca PWM durante un reset
 - [ ] Puerto serie configurable en el plugin (fuera de E06, pasó al backlog como `[R13]`): hoy `/dev/ttyACM0` está fijo en `robotic_arm_ros2_control.xacro`; con la DevKitC (CP2102) es `/dev/ttyUSB0` y no conectaría. Opciones: argumento del launch o regla udev con nombre fijo (p. ej. `/dev/robotic_arm`)
-- [ ] `Kconfig.projbuild`: puerto, pines TX/RX y baudrate de cada UART (ojo: el rango `1200..115200` de `esp32_bridge` rechaza 1000000)
-- [ ] `sdkconfig.defaults` versionado
+- [ ] Migrar `board_pins.h` a `Kconfig.projbuild` (pines y baudrates de UART2, baudrate de UART0; puertos y pines de UART0 quedan fijos). Ojo: el rango `1200..115200` de `esp32_bridge` rechaza 1000000
+- [ ] `sdkconfig.defaults` versionado (target + consola). `Kconfig.projbuild` **crea** opciones; `sdkconfig.defaults` **elige valores** (propios y de ESP-IDF); `sdkconfig` es el resultado local
 - [ ] `mrad_to_counts(int32_t mrad)` con redondeo simétrico
 - [ ] Comprar adaptador USB-serie TTL 3.3V
