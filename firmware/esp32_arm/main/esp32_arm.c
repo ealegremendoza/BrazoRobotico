@@ -24,10 +24,8 @@
 #define PC_UART_RX_BUF_SIZE 1024
 #define SERVOS_UART_RX_BUF_SIZE 256
 
-// Bytes read from UART0 per call; any size works, frame_parser_feed() handles chunking.
+// Max bytes read from UART0 per call; any size works, frame_parser_feed() handles chunking.
 #define PC_RX_CHUNK_SIZE 64
-// Max wait for the first byte: short, so the task stays responsive but doesn't spin.
-#define PC_RX_TIMEOUT_MS 20
 #define PC_RX_TASK_STACK_SIZE 4096
 #define PC_RX_TASK_PRIORITY 10
 
@@ -156,6 +154,11 @@ static void send_m_feedback(const int32_t counts[M_PAYLOAD_JOINTS])
     uint8_t frame[FRAME_MAX_SIZE];
     size_t frame_size = frame_build(frame, sizeof(frame), 'M', payload, payload_len);
     uart_write_bytes(PC_UART_PORT, frame, frame_size);
+
+    ESP_LOGI(TAG, "Feedback: counts [%ld %ld %ld %ld %ld %ld] -> mrad [%ld %ld %ld %ld %ld %ld]",
+             (long)counts[0], (long)counts[1], (long)counts[2], (long)counts[3], (long)counts[4],
+             (long)counts[5], (long)mrad[0], (long)mrad[1], (long)mrad[2], (long)mrad[3],
+             (long)mrad[4], (long)mrad[5]);
 }
 
 /**
@@ -229,6 +232,11 @@ static void on_pc_frame(char cid, const uint8_t *payload, size_t payload_len, vo
 /**
  * @brief Reads bytes from the PC link (UART0) and feeds them to the frame parser.
  *
+ * Blocks until one byte arrives, then takes whatever is already buffered without
+ * waiting. Asking uart_read_bytes() for a full chunk with a timeout would wait for
+ * the timeout on every frame (an M frame, 44 bytes, never fills 64), adding 20-30 ms
+ * of latency: more than one 20 ms ros2_control cycle.
+ *
  * @param arg Unused.
  */
 static void pc_rx_task(void *arg)
@@ -241,10 +249,24 @@ static void pc_rx_task(void *arg)
 
     uint8_t chunk[PC_RX_CHUNK_SIZE];
     while (1) {
-        int n = uart_read_bytes(PC_UART_PORT, chunk, sizeof(chunk), pdMS_TO_TICKS(PC_RX_TIMEOUT_MS));
-        if (n > 0) {
-            frame_parser_feed(&parser, chunk, (size_t)n);
+        // Nothing else to do until the PC sends something: wait for the first byte.
+        int n = uart_read_bytes(PC_UART_PORT, chunk, 1, portMAX_DELAY);
+        if (n <= 0) {
+            continue;
         }
+
+        // Then grab what is already buffered, without waiting for more.
+        size_t buffered = 0;
+        uart_get_buffered_data_len(PC_UART_PORT, &buffered);
+        size_t want = buffered < sizeof(chunk) - 1 ? buffered : sizeof(chunk) - 1;
+        if (want > 0) {
+            int more = uart_read_bytes(PC_UART_PORT, chunk + 1, want, 0);
+            if (more > 0) {
+                n += more;
+            }
+        }
+
+        frame_parser_feed(&parser, chunk, (size_t)n);
     }
 }
 
