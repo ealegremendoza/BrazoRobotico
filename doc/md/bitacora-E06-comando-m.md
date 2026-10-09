@@ -394,6 +394,21 @@ FF FF | FE | Length | 83 | 29 | 07 | [ID acc posL posH 0 0 spdL spdH] × 6 | che
 - **Velocidad y aceleración en Kconfig:** `ARM_SERVO_MOVE_SPEED` (default 300 pasos/s ≈ 26°/s, máx. 3400) y `ARM_SERVO_MOVE_ACC` (default 10 = 1000 pasos/s²). Mismos defaults que `servo_control_ui.py`: lentos y seguros para la puesta en marcha. Muy bajos hacen que el brazo se atrase respecto de las trayectorias de MoveIt; ajustar después de probar.
 - Compila y el paquete coincide byte a byte con el ejemplo de `[E04]` en el test. **Sin probar con los servos todavía.**
 
+### Cómo funciona `servo_bus_build_sync_write_pos()`
+
+Arma en un buffer **un solo paquete** que mueve varios servos; no toca la UART. Frente a 6 `WRITE` separados: menos bytes en el bus (un encabezado en vez de seis) y los servos **arrancan juntos** (cada uno lee su parte del mismo paquete), sin movimiento "en cascada".
+
+1. **Tamaño y validación primero:** `SERVO_BUS_SYNC_WRITE_POS_SIZE(count)` = 8 + count × 8 (56 con 6 servos). Length = "bytes que vienen después de mí" (instrucción … checksum) = total − 4 (`FF FF ID Length`) = 52 (`0x34`). Si el buffer no alcanza o Length no entra en 1 byte (> 31 servos) devuelve 0 **sin escribir nada** (misma idea que el chequeo de tamaño de `m_payload_parse`).
+2. **Encabezado:** `FF FF` (inicio) · `FE` (broadcast) · `34` (Length) · `83` (`SYNC_WRITE`) · `29` (registro 41 = `ACC`, primero a escribir) · `07` (bytes por servo).
+3. **Un bloque por servo:** `ID | acc | posL posH | timeL timeH | speedL speedH`, que cada servo escribe en sus registros 41–47.
+   - **Little-endian:** byte bajo primero. `position & 0xFF` = 8 bits de abajo; `position >> 8` = 8 bits de arriba. 2048 = `0x0800` → `00 08`.
+   - **`time` = 0:** el STS3215 puede moverse "en X ms" o "a X velocidad"; con 0 manda la velocidad.
+4. **Checksum:** suma desde el ID (sin `FF FF`) en un `uint8_t`, que se desborda solo (suma módulo 256, el "solo el byte bajo" del protocolo), y `~` invierte los bits (complemento a 1). El receptor suma todo desde el ID **incluido el checksum** y tiene que dar `0xFF` (un valor más su complemento = todos unos): eso verifica `test_six_servos`.
+
+**Sin respuesta:** al broadcast (`FE`) ningún servo contesta; si contestaran todos a la vez en un bus half-duplex chocarían. Para la `M` de feedback hacen falta lecturas aparte.
+
+Protocolo validado contra el manual oficial y el mapa de registros del ST3215: ver "Validación contra la documentación oficial" en `doc/md/bitacora-E04-protocolo-driver.md`.
+
 ### Prueba con el brazo (pendiente)
 
 ⚠️ Desde este firmware cada `M` mueve los motores. Los valores de las pruebas anteriores (`1571 -785 0 -3142 3142 -1`) mandan joints a los extremos: no usarlos.
