@@ -215,6 +215,16 @@ Decisiones:
 
 **LEN corrupto pero en rango:** con un STX espurio seguido de `0020`, el parser espera 25 bytes que no son de esa trama. Las tramas buenas que vienen detrás **no se pierden, se demoran**: cuando llegan bytes suficientes, la candidata falsa falla ETX/LRC, se descarta de a 1 byte y aparecen. La espera está acotada por `FRAME_MAX_LEN` (un `9039` se rechaza enseguida por fuera de rango).
 
+## Payload de `M` (`main/m_payload.{h,c}`)
+
+`m_payload_parse(payload, payload_len, mrad[6])` convierte `+1571 FS -0785 FS ... FS +0001` en 6 `int32_t` en mrad.
+
+- **Tamaño exacto:** `M_PAYLOAD_SIZE` = 6 campos × 5 + 5 FS = **35** (LEN `0039` = 35 + 4, como en `[R09]`). Es lo primero que se valida.
+- **Cada campo:** signo `+`/`-` y 4 dígitos; cada campo salvo el último va seguido de FS.
+- **Todo o nada:** decodifica en un array local y copia a `mrad` solo si los 6 campos son válidos. Si falla devuelve `false` y no toca la salida: nunca se mueve un servo con una trama a medias (igual que `position_states_` en el plugin).
+- **Valida formato, no rango:** `+9999` es un campo bien formado y se acepta; el recorte a ±3142 lo hace `mrad_to_counts()`. Una responsabilidad por función.
+- **Módulo propio**, no dentro de `frame_parser`: el parser no sabe qué significa cada CID. Acá va a vivir también el armado del payload de la `M` de feedback.
+
 ## Tests en la PC (`test_host/`)
 
 Funciones puras (sin hardware): se compilan con `gcc`, sin ESP-IDF. Desde `firmware/esp32_arm`:
@@ -225,9 +235,13 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 
 gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
     test_host/test_servo_units.c main/servo_units.c -lm -o /tmp/test_servo_units && /tmp/test_servo_units
+
+gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
+    test_host/test_m_payload.c main/m_payload.c -o /tmp/test_m_payload && /tmp/test_m_payload
 ```
 
 - `test_frame_parser.c` (12 casos): trama `M` de 44 bytes con LEN `0039`, byte a byte, incompleta que espera, 50 tramas en un solo bloque (más grande que el buffer), basura/log antes, 1000 bytes sin STX, LRC/ETX/FS malos, trama buena dentro de una corrupta, LEN corrupto que demora, LEN inválidos (`9999`, `0129`, `0003`, `00a9`) y límites (LEN 4 y 128), dos tramas cortadas en cada punto posible.
+- `test_m_payload.c`: payload válido (signos, ceros, ±3142), fuera de rango bien formado (se acepta), 10 malformados (vacío, 5 o 7 joints, sin signo, espacio como signo, letra, último campo malo, coma en vez de FS, campo corto + largo, FS al final): todos devuelven `false` y dejan la salida intacta.
 - `test_servo_units.c`: valores conocidos, contra `round()` en punto flotante en todo el rango, extremos sin overflow (`INT32_MIN/MAX`), ida y vuelta.
 - ASan/UBSan detectan accesos fuera del buffer y overflow de enteros que un test "pasa/falla" no vería.
 
@@ -249,7 +263,7 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 - [x] Flash de 4MB en `sdkconfig.defaults` (`CONFIG_ESPTOOLPY_FLASHSIZE_4MB`): las dos placas tienen 4MB según `esptool`, pero ESP-IDF asume 2MB por defecto (dejaba la mitad sin usar)
 - [x] Parser de tramas del protocolo de `[R09]` (`frame_parser.{h,c}`), con tests en la PC
 - [x] Tests de `servo_units` guardados en `test_host/` (antes eran archivos sueltos en la carpeta temporal)
-- [ ] Parsear el payload de `M` (6 joints de 5 chars con signo, separados por FS) y convertir con `mrad_to_counts()`
+- [x] Parsear el payload de `M` (6 joints de 5 chars con signo, separados por FS): `m_payload_parse()`, con tests en la PC
 - [ ] Tarea que lee UART0 y alimenta el parser
 - [ ] Enviar `SYNC_WRITE` al bus de servos
 - [ ] Leer las posiciones reales y responder con una `M` de feedback
