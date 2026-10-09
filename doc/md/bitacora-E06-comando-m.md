@@ -215,6 +215,92 @@ Decisiones:
 
 **LEN corrupto pero en rango:** con un STX espurio seguido de `0020`, el parser espera 25 bytes que no son de esa trama. Las tramas buenas que vienen detrás **no se pierden, se demoran**: cuando llegan bytes suficientes, la candidata falsa falla ETX/LRC, se descarta de a 1 byte y aparecen. La espera está acotada por `FRAME_MAX_LEN` (un `9039` se rechaza enseguida por fuera de rango).
 
+### Cómo funciona `frame_parser_feed()`
+
+Puerta de entrada: recibe un bloque de cualquier tamaño y lo mete en el buffer de 133 **de a pedazos que entren**, parseando entre pedazo y pedazo.
+
+```c
+while (size > 0) {
+    size_t space = sizeof(parser->buf) - parser->len;   // lugar libre
+    size_t n = size < space ? size : space;             // meto lo que entre
+    memcpy(parser->buf + parser->len, data, n);         // al final de lo pendiente
+    parser->len += n; data += n; size -= n;
+    parse_buffer(parser);                               // saca tramas: libera lugar
+    if (parser->len == sizeof(parser->buf)) drop(parser, 1);  // red de seguridad
+}
+```
+
+- Los bytes se agregan **al final** de lo pendiente: una trama partida entre dos lecturas queda contigua.
+- `parse_buffer()` entrega las tramas completas y las saca: eso libera lugar para la vuelta siguiente. Lo incompleto queda esperando en `buf[0]`.
+- **Red de seguridad:** un buffer lleno (133) empieza con STX y LEN ≤ 128, así que siempre hay una candidata completa que se acepta o descarta. Si alguien cambia las constantes y rompe esa garantía, el loop se trabaría (sin lugar ni progreso): descartar 1 byte asegura que siempre avance.
+
+Ejemplo: 3 tramas `M` (132 bytes) juntas, con 20 bytes de una trama anterior esperando:
+
+| Vuelta | Lugar libre | Copia | Buffer | `parse_buffer` | Queda |
+|---|---|---|---|---|---|
+| 1 | 133 − 20 = 113 | 113 | 133 | entrega 2 tramas (la de antes + 1) | 45 |
+| 2 | 133 − 45 = 88 | 19 | 64 | entrega 1 trama | 20 (incompleta) |
+
+### Cómo funciona `parse_buffer()`
+
+La trama candidata siempre empieza en `buf[0]`, así que cada campo tiene posición fija:
+
+```
+índice:  0     1  2  3  4    5     6     7 ...        size-2  size-1
+        STX | L  E  N  ... | CID | FS | payload ... | ETX  | LRC
+             LEN_OFFSET    CID_   FS_   PAYLOAD_
+                           OFFSET OFFSET OFFSET
+        └── HEADER_SIZE = 5 ──┘└──────── LEN bytes ────────┘
+```
+
+`HEADER_SIZE` (STX + 4 dígitos) son los bytes que LEN no cuenta: tamaño total = `HEADER_SIZE + LEN`.
+
+Cada vuelta del loop termina de una de **tres** formas:
+
+| Salida | Cuándo | Significado |
+|---|---|---|
+| `return` | faltan bytes | No se puede decidir todavía: esperar la próxima lectura |
+| `drop(1)` + `continue` | algo inválido | Ese STX era falso: saltearlo y buscar el siguiente |
+| callback + `drop(frame_size)` | trama válida | Entregarla, sacarla y seguir por si hay otra |
+
+Pasos:
+
+1. **Buscar el STX** (`memchr`). Sin STX → todo es basura, vaciar. Con STX → descartar lo anterior (log, restos) y dejarlo en `buf[0]`.
+2. **¿Llegaron los 4 dígitos de LEN?** Menos de 5 bytes → `return`.
+3. **¿LEN es válido?** 4 dígitos ASCII, entre 4 (sin payload) y 128. Si no → STX falso: `drop(1)` y volver al paso 1. Evita que un `9039` deje esperando miles de bytes.
+4. **¿Llegó la trama completa** (`5 + LEN`)? No → `return`.
+5. **¿FS, ETX y LRC bien?** (`frame_is_valid`): FS en la posición 6, ETX en `size-2`, XOR desde el primer dígito de LEN hasta ETX igual al último byte. Si no → `drop(1)`, no la trama entera.
+6. **Trama válida:** callback con CID y payload (`LEN - 4` bytes). El payload apunta **adentro del buffer**, por eso el `drop` va **después** del callback (antes, el `memmove` pisaría el payload mientras se lee).
+
+**Por qué descartar 1 byte y no la trama entera** (pasos 3 y 5), caso de `test_valid_frame_inside_corrupted_one`:
+
+```
+02 30 30 30 38 | 02 30 30 30 36 44 1C 30 37 03 xx
+└ STX falso, LEN=8 ┘└──────── trama buena ────────┘
+```
+
+El STX falso dice "mido 13 bytes" y abarca parte de la trama buena; falla el ETX (en la posición 11 hay `1C`). Descartando los 13 bytes se perdería el comienzo de la trama buena; descartando 1, el paso 1 encuentra el segundo STX y la recupera.
+
+### Por qué buffer + reescaneo y no una FSM
+
+**Por el protocolo: el STX no está escapado.** Nada impide que `0x02` aparezca dentro de una trama (el LRC es un XOR y puede valer cualquier cosa). Un `0x02` no garantiza un inicio de trama: solo se sabe después de validar todo.
+
+- **FSM clásica** (`WAIT_STX → READ_LEN → READ_BODY → validar → WAIT_STX`): procesa cada byte una vez y lo olvida. Si el LRC falla, vuelve a `WAIT_STX` desde el byte siguiente: una trama buena que empezaba dentro de la corrupta ya pasó y se pierde. No puede volver atrás.
+- **Buffer + reescaneo:** guarda los bytes; si la candidata falla, descarta 1 y vuelve a buscar en lo que ya tenía, y recupera la trama buena.
+
+En realidad sigue siendo una máquina de estados, **implícita**: el estado lo da cuántos bytes hay (sin STX → esperando STX; < 5 → esperando LEN; < `5 + LEN` → esperando cuerpo). Una FSM explícita que guarde y "reproduzca" bytes tras un error termina siendo esto mismo con más código.
+
+| | FSM clásica | Buffer + reescaneo |
+|---|---|---|
+| Recupera tramas dentro de una corrupta | ❌ | ✅ |
+| Trabajo por byte | O(1), cada byte una vez | Peor caso O(n²) con basura patológica |
+| Memoria | Igual (el payload hay que guardarlo) | Igual |
+| Igual al parser del plugin (`[R09]`) | ❌ | ✅ |
+
+El peor caso cuadrático no importa: n ≤ 133 y a 115200 baudios sobra tiempo. Usar el mismo algoritmo que el `read()` del plugin hace que los dos lados reaccionen igual a los mismos errores, lo que facilita el debug.
+
+**Cuándo convendría una FSM:** si el protocolo escapara el STX (SLIP, HDLC: `0x02` nunca aparece dentro de una trama, un STX siempre es un inicio y resincronizar desde el próximo es seguro), o con tramas muy largas o muy poca RAM para guardar la trama completa. Ninguno aplica acá.
+
 ## Payload de `M` (`main/m_payload.{h,c}`)
 
 `m_payload_parse(payload, payload_len, mrad[6])` convierte `+1571 FS -0785 FS ... FS +0001` en 6 `int32_t` en mrad.
