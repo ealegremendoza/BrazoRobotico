@@ -124,6 +124,45 @@ static void parse_buffer(frame_parser_t *parser)
 }
 
 /**
+ * @brief Builds a frame (STX | LEN | CID | FS | payload | ETX | LRC).
+ *
+ * @param out         Output buffer.
+ * @param out_size    Size of out.
+ * @param cid         Command id.
+ * @param payload     Payload bytes.
+ * @param payload_len Number of payload bytes.
+ * @return Frame size in bytes, or 0 if out is too small or the payload too long.
+ */
+size_t frame_build(uint8_t *out, size_t out_size, char cid, const uint8_t *payload, size_t payload_len)
+{
+    size_t len = payload_len + FRAME_MIN_LEN;
+    size_t frame_size = HEADER_SIZE + len;
+    if (len > FRAME_MAX_LEN || frame_size > out_size) {
+        return 0;
+    }
+
+    size_t n = 0;
+    out[n++] = FRAME_STX;
+    // LEN as 4 ASCII digits, most significant first ("0039").
+    for (size_t divisor = 1000; divisor > 0; divisor /= 10) {
+        out[n++] = (uint8_t)('0' + (len / divisor) % 10);
+    }
+    out[n++] = (uint8_t)cid;
+    out[n++] = FRAME_FS;
+    memcpy(out + n, payload, payload_len);
+    n += payload_len;
+    out[n++] = FRAME_ETX;
+
+    // LRC covers LEN..ETX: everything except STX and the LRC itself.
+    uint8_t lrc = 0;
+    for (size_t i = LEN_OFFSET; i < n; i++) {
+        lrc ^= out[i];
+    }
+    out[n++] = lrc;
+    return n;
+}
+
+/**
  * @brief Clears the buffer and sets the handler. Call before the first feed.
  *
  * @param parser   Parser to initialize.

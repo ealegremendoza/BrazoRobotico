@@ -133,6 +133,40 @@ static void test_malformed_payloads(void)
     test_rejected("trailing FS", "+1571|-0785|+0000|-3142|+3142|+001|");
 }
 
+/** @brief m_payload_format() writes the same text the ros2_control plugin sends (%+05ld, FS). */
+static void test_format_known(void)
+{
+    puts("format: same text as the plugin, out-of-range values clamped to 4 digits");
+    uint8_t out[64], expected[64];
+    const int32_t mrad[M_PAYLOAD_JOINTS] = {1571, -785, 0, -3142, 3142, -1};
+    size_t n = m_payload_format(out, sizeof(out), mrad);
+    CHECK(n == M_PAYLOAD_SIZE);
+    CHECK(memcmp(out, expected, payload_from(expected, "+1571|-0785|+0000|-3142|+3142|-0001")) == 0);
+
+    const int32_t big[M_PAYLOAD_JOINTS] = {12000, -12000, 9999, -9999, 10, -10};
+    n = m_payload_format(out, sizeof(out), big);
+    CHECK(memcmp(out, expected, payload_from(expected, "+9999|-9999|+9999|-9999|+0010|-0010")) == 0);
+
+    CHECK(m_payload_format(out, M_PAYLOAD_SIZE - 1, mrad) == 0);
+}
+
+/** @brief parse(format(x)) == x for every angle in [-3142, 3142]. */
+static void test_format_parse_round_trip(void)
+{
+    puts("round trip: parse(format(x)) == x for every mrad in [-3142, 3142]");
+    uint8_t out[64];
+    int mismatches = 0;
+    for (int32_t v = -3142; v <= 3142; v++) {
+        const int32_t mrad[M_PAYLOAD_JOINTS] = {v, -v, v / 2, 0, v, -1};
+        int32_t back[M_PAYLOAD_JOINTS];
+        size_t n = m_payload_format(out, sizeof(out), mrad);
+        if (!m_payload_parse(out, n, back) || memcmp(mrad, back, sizeof(back)) != 0) {
+            mismatches++;
+        }
+    }
+    CHECK(mismatches == 0);
+}
+
 /**
  * @brief Runs every m_payload test.
  *
@@ -143,6 +177,8 @@ int main(void)
     test_valid_payload();
     test_out_of_range_is_format_valid();
     test_malformed_payloads();
+    test_format_known();
+    test_format_parse_round_trip();
 
     if (failures) {
         printf("%d check(s) FAILED\n", failures);

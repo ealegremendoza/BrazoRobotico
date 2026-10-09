@@ -21,6 +21,8 @@
 #define M_PAYLOAD_JOINTS 6
 /** Chars per joint field: sign + 4 digits. */
 #define M_PAYLOAD_FIELD_SIZE 5
+/** Largest magnitude a 4-digit field can hold. */
+#define M_PAYLOAD_FIELD_MAX 9999
 /** Exact payload size: 6 fields + 5 separators = 35 bytes. */
 #define M_PAYLOAD_SIZE (M_PAYLOAD_JOINTS * M_PAYLOAD_FIELD_SIZE + (M_PAYLOAD_JOINTS - 1))
 
@@ -38,5 +40,18 @@
  * @return true if the payload is valid and mrad was written, false otherwise.
  */
 bool m_payload_parse(const uint8_t *payload, size_t payload_len, int32_t mrad[M_PAYLOAD_JOINTS]);
+
+/**
+ * @brief Encodes one angle per joint as an M payload (inverse of m_payload_parse()).
+ *
+ * Same format as the ros2_control plugin's write() (%+05ld per field, FS between
+ * fields). Values outside +-9999 are clamped so every field stays 5 chars wide.
+ *
+ * @param out      Output buffer, at least M_PAYLOAD_SIZE bytes. Not NUL-terminated.
+ * @param out_size Size of out.
+ * @param mrad     M_PAYLOAD_JOINTS angles in milliradians.
+ * @return M_PAYLOAD_SIZE, or 0 if out is too small.
+ */
+size_t m_payload_format(uint8_t *out, size_t out_size, const int32_t mrad[M_PAYLOAD_JOINTS]);
 
 #endif // M_PAYLOAD_H

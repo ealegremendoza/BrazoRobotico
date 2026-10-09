@@ -362,6 +362,44 @@ static void test_split_at_every_point(void)
     }
 }
 
+/** @brief frame_build() produces the exact M frame that tools/send_m.py (and the plugin) send. */
+static void test_frame_build_matches_send_m(void)
+{
+    puts("frame_build: same bytes as tools/send_m.py for an M frame");
+    // send_m.py 1571 -785 0 -3142 3142 -1
+    const uint8_t expected[] = {0x02, 0x30, 0x30, 0x33, 0x39, 0x4d, 0x1c, 0x2b, 0x31, 0x35, 0x37,
+                                0x31, 0x1c, 0x2d, 0x30, 0x37, 0x38, 0x35, 0x1c, 0x2b, 0x30, 0x30,
+                                0x30, 0x30, 0x1c, 0x2d, 0x33, 0x31, 0x34, 0x32, 0x1c, 0x2b, 0x33,
+                                0x31, 0x34, 0x32, 0x1c, 0x2d, 0x30, 0x30, 0x30, 0x31, 0x03, 0x4b};
+    const uint8_t *payload = expected + 7;   // between FS and ETX
+    size_t payload_len = sizeof(expected) - 9;
+    uint8_t out[FRAME_MAX_SIZE];
+    size_t n = frame_build(out, sizeof(out), 'M', payload, payload_len);
+    CHECK(n == sizeof(expected));
+    CHECK(memcmp(out, expected, sizeof(expected)) == 0);
+}
+
+/** @brief A built frame goes through the parser unchanged; oversize payloads and small buffers are refused. */
+static void test_frame_build_round_trip(void)
+{
+    puts("frame_build -> parser round trip, limits");
+    frame_parser_t p;
+    received_t rx;
+    setup(&p, &rx);
+    uint8_t out[FRAME_MAX_SIZE], payload[FRAME_MAX_LEN];
+    memset(payload, 'x', sizeof(payload));
+
+    size_t n = frame_build(out, sizeof(out), 'D', payload, FRAME_MAX_LEN - FRAME_MIN_LEN);
+    CHECK(n == FRAME_MAX_SIZE);
+    frame_parser_feed(&p, out, n);
+    CHECK(rx.count == 1 && rx.frames[0].cid == 'D');
+    CHECK(rx.frames[0].payload_len == FRAME_MAX_LEN - FRAME_MIN_LEN);
+
+    CHECK(frame_build(out, sizeof(out), 'D', payload, FRAME_MAX_LEN - FRAME_MIN_LEN + 1) == 0);
+    CHECK(frame_build(out, 10, 'D', payload, 2) == 0);   // needs 11
+    CHECK(frame_build(out, 11, 'D', payload, 2) == 11);
+}
+
 /**
  * @brief Runs every frame_parser test.
  *
@@ -381,6 +419,8 @@ int main(void)
     test_corrupted_len_waits_for_bytes();
     test_len_validation();
     test_split_at_every_point();
+    test_frame_build_matches_send_m();
+    test_frame_build_round_trip();
 
     if (failures) {
         printf("%d check(s) FAILED\n", failures);

@@ -10,6 +10,7 @@
 #include "sdkconfig.h"
 #include "driver/uart.h"
 #include "esp_err.h"
+#include "esp_timer.h"
 #include "esp_log.h"
 
 #include "board_pins.h"
@@ -29,6 +30,18 @@
 #define PC_RX_TIMEOUT_MS 20
 #define PC_RX_TASK_STACK_SIZE 4096
 #define PC_RX_TASK_PRIORITY 10
+
+// Max wait for all servos to answer a SYNC_READ. They answer in < 1 ms at 1 Mbaud;
+// on timeout no M reply is sent and the PC sees a missing answer for that cycle.
+#define SERVO_READ_TIMEOUT_MS 10
+// Room for an echo of our own SYNC_WRITE + SYNC_READ (if the bus adapter echoes TX)
+// plus every servo's status packet.
+#define SERVO_RX_BUF_SIZE                                        \
+    (SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS) +           \
+     SERVO_BUS_SYNC_READ_SIZE(M_PAYLOAD_JOINTS) + M_PAYLOAD_JOINTS * SERVO_BUS_POS_STATUS_SIZE)
+
+/** Servo bus IDs in M payload order: joint j drives servo j + 1 (shoulder_pan = 1 .. gripper = 6). */
+static const uint8_t SERVO_IDS[M_PAYLOAD_JOINTS] = {1, 2, 3, 4, 5, 6};
 
 static const char *TAG = "ESP32-ARM";
 
@@ -78,7 +91,76 @@ static void init_uarts(void)
 }
 
 /**
- * @brief Handles an M frame: decodes the joint angles and moves the servos with one SYNC_WRITE.
+ * @brief Reads every servo's present position with one SYNC_READ.
+ *
+ * Collects the answers until all servos replied or SERVO_READ_TIMEOUT_MS passes.
+ * Reads SERVO_BUS_POS_STATUS_SIZE bytes per call after the first batch, so each
+ * call returns as soon as the next answer arrives instead of waiting for a full buffer.
+ *
+ * @param positions Output: present position of each servo in counts, untouched on failure.
+ * @return true if every servo answered in time, false otherwise.
+ */
+static bool read_servo_positions(int32_t positions[M_PAYLOAD_JOINTS])
+{
+    uint8_t request[SERVO_BUS_SYNC_READ_SIZE(M_PAYLOAD_JOINTS)];
+    size_t request_size = servo_bus_build_sync_read_pos(request, sizeof(request), SERVO_IDS,
+                                                        M_PAYLOAD_JOINTS);
+    uart_write_bytes(SERVOS_UART_PORT, request, request_size);
+
+    static uint8_t last_errors = 0;
+    uint8_t rx[SERVO_RX_BUF_SIZE];
+    size_t rx_len = 0;
+    size_t want = M_PAYLOAD_JOINTS * SERVO_BUS_POS_STATUS_SIZE;  // no echo: exactly the answers
+    int64_t deadline_us = esp_timer_get_time() + SERVO_READ_TIMEOUT_MS * 1000;
+
+    while (rx_len < sizeof(rx) && esp_timer_get_time() < deadline_us) {
+        size_t space = sizeof(rx) - rx_len;
+        int n = uart_read_bytes(SERVOS_UART_PORT, rx + rx_len, want < space ? want : space,
+                                pdMS_TO_TICKS(SERVO_READ_TIMEOUT_MS));
+        if (n <= 0) {
+            break;  // nothing more arrived within the timeout
+        }
+        rx_len += (size_t)n;
+
+        uint8_t errors;
+        if (servo_bus_parse_positions(rx, rx_len, SERVO_IDS, M_PAYLOAD_JOINTS, positions, &errors)) {
+            if (errors != last_errors) {
+                // Only log changes: at 50 Hz a persistent error would flood the console.
+                ESP_LOGW(TAG, "Servo status error flags: 0x%02x", errors);
+                last_errors = errors;
+            }
+            return true;
+        }
+        want = SERVO_BUS_POS_STATUS_SIZE;  // still missing answers (or an echo arrived first)
+    }
+
+    ESP_LOGW(TAG, "SYNC_READ: not every servo answered (%u bytes received)", (unsigned)rx_len);
+    return false;
+}
+
+/**
+ * @brief Sends the M feedback frame with the present joint angles to the PC.
+ *
+ * @param counts Present position of each servo, in counts.
+ */
+static void send_m_feedback(const int32_t counts[M_PAYLOAD_JOINTS])
+{
+    int32_t mrad[M_PAYLOAD_JOINTS];
+    for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
+        mrad[j] = counts_to_mrad(counts[j]);
+    }
+
+    uint8_t payload[M_PAYLOAD_SIZE];
+    size_t payload_len = m_payload_format(payload, sizeof(payload), mrad);
+
+    uint8_t frame[FRAME_MAX_SIZE];
+    size_t frame_size = frame_build(frame, sizeof(frame), 'M', payload, payload_len);
+    uart_write_bytes(PC_UART_PORT, frame, frame_size);
+}
+
+/**
+ * @brief Handles an M frame: moves the servos (SYNC_WRITE), reads where they are
+ *        (SYNC_READ) and answers the PC with an M feedback frame.
  *
  * @param payload     Payload bytes (between FS and ETX).
  * @param payload_len Number of bytes in payload.
@@ -91,12 +173,11 @@ static void handle_m_frame(const uint8_t *payload, size_t payload_len)
         return;
     }
 
-    // Joint j of the M payload drives servo ID j + 1 (shoulder_pan = 1 .. gripper = 6),
-    // same order as the joints in robotic_arm_ros2_control.xacro.
+    // Same joint order as robotic_arm_ros2_control.xacro (see SERVO_IDS).
     servo_target_t targets[M_PAYLOAD_JOINTS];
     for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
         targets[j] = (servo_target_t){
-            .id = (uint8_t)(j + 1),
+            .id = SERVO_IDS[j],
             .position = (uint16_t)mrad_to_counts(mrad[j]),  // always 0..4095
             .speed = CONFIG_ARM_SERVO_MOVE_SPEED,
             .acc = CONFIG_ARM_SERVO_MOVE_ACC,
@@ -106,13 +187,20 @@ static void handle_m_frame(const uint8_t *payload, size_t payload_len)
     uint8_t packet[SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS)];
     size_t packet_size = servo_bus_build_sync_write_pos(packet, sizeof(packet), targets,
                                                         M_PAYLOAD_JOINTS);
+    uart_flush_input(SERVOS_UART_PORT);  // drop stale bytes: only this cycle's answers count
     uart_write_bytes(SERVOS_UART_PORT, packet, packet_size);
 
-    // TODO(E06): read the present positions and reply with an M feedback frame.
     ESP_LOGI(TAG, "M: mrad [%ld %ld %ld %ld %ld %ld] -> counts [%u %u %u %u %u %u]",
              (long)mrad[0], (long)mrad[1], (long)mrad[2], (long)mrad[3], (long)mrad[4],
              (long)mrad[5], targets[0].position, targets[1].position, targets[2].position,
              targets[3].position, targets[4].position, targets[5].position);
+
+    // Request/response (R09): one M feedback per M command. No answer if the
+    // servos did not reply; the PC detects the missing frame.
+    int32_t present[M_PAYLOAD_JOINTS];
+    if (read_servo_positions(present)) {
+        send_m_feedback(present);
+    }
 }
 
 /**

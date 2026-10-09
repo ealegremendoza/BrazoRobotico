@@ -8,7 +8,8 @@ Usage:
     send_m.py [--port /dev/ttyACM0] [--count N] [--period-ms MS] [--boot-wait-ms MS] j1 j2 j3 j4 j5 j6
 
 Joint values are integers in milliradians (e.g. 1571 -1571 0 0 0 0).
-The ESP32 logs what it decoded on its console (UART1, GPIO14).
+The ESP32 logs what it decoded on its console (UART1, GPIO14) and answers each M
+with an M feedback frame (present joint angles), which this script decodes and prints.
 
 Opening the port resets the ESP32 (Linux asserts DTR/RTS on open, before pyserial
 can clear them; on ESP32 dev boards those lines drive EN/GPIO0). Frames sent while
@@ -37,6 +38,33 @@ def build_m_frame(mrad):
     return bytes([STX]) + covered + bytes([lrc])
 
 
+def parse_frames(buf):
+    """Extract valid frames from buf (same rules as the C parser). Returns (frames, rest)."""
+    frames = []
+    while True:
+        start = buf.find(bytes([STX]))
+        if start < 0:
+            return frames, b""
+        buf = buf[start:]
+        if len(buf) < 5:
+            return frames, buf
+        digits = buf[1:5]
+        if not digits.isdigit() or not 4 <= int(digits) <= 128:
+            buf = buf[1:]
+            continue
+        size = 5 + int(digits)
+        if len(buf) < size:
+            return frames, buf
+        lrc = 0
+        for b in buf[1:size - 1]:
+            lrc ^= b
+        if buf[6] != FS or buf[size - 2] != ETX or lrc != buf[size - 1]:
+            buf = buf[1:]
+            continue
+        frames.append((chr(buf[5]), buf[7:size - 2]))
+        buf = buf[size:]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--port", default="/dev/ttyACM0")
@@ -59,13 +87,23 @@ def main():
     ser.dtr = False
     ser.rts = False
     ser.open()
+    rx = b""
+    replies = 0
     try:
         time.sleep(args.boot_wait_ms / 1000.0)
+        ser.reset_input_buffer()  # drop the ROM boot messages printed on UART0
         for _ in range(args.count):
             ser.write(frame)
             time.sleep(args.period_ms / 1000.0)
+            rx += ser.read(ser.in_waiting)
+            frames, rx = parse_frames(rx)
+            for cid, payload in frames:
+                replies += 1
+                fields = payload.split(bytes([FS]))
+                print("Reply %s: %s mrad" % (cid, " ".join(f.decode("ascii", "replace") for f in fields)))
     finally:
         ser.close()
+    print("Sent %d M frame(s), got %d reply frame(s)" % (args.count, replies))
 
 
 if __name__ == "__main__":

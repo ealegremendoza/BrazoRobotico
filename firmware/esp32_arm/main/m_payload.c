@@ -65,3 +65,40 @@ bool m_payload_parse(const uint8_t *payload, size_t payload_len, int32_t mrad[M_
     }
     return true;
 }
+
+/**
+ * @brief Encodes one angle per joint as an M payload.
+ *
+ * @param out      Output buffer, at least M_PAYLOAD_SIZE bytes.
+ * @param out_size Size of out.
+ * @param mrad     M_PAYLOAD_JOINTS angles in milliradians (clamped to +-9999).
+ * @return M_PAYLOAD_SIZE, or 0 if out is too small.
+ */
+size_t m_payload_format(uint8_t *out, size_t out_size, const int32_t mrad[M_PAYLOAD_JOINTS])
+{
+    if (out_size < M_PAYLOAD_SIZE) {
+        return 0;
+    }
+
+    size_t n = 0;
+    for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
+        if (j > 0) {
+            out[n++] = FRAME_FS;
+        }
+
+        int32_t value = mrad[j];
+        if (value > M_PAYLOAD_FIELD_MAX) {
+            value = M_PAYLOAD_FIELD_MAX;
+        } else if (value < -M_PAYLOAD_FIELD_MAX) {
+            value = -M_PAYLOAD_FIELD_MAX;
+        }
+        out[n++] = value < 0 ? '-' : '+';
+        int32_t magnitude = value < 0 ? -value : value;
+
+        // 4 digits, most significant first, zero padded ("-0785").
+        for (int32_t divisor = 1000; divisor > 0; divisor /= 10) {
+            out[n++] = (uint8_t)('0' + (magnitude / divisor) % 10);
+        }
+    }
+    return n;
+}

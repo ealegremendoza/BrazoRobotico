@@ -79,4 +79,16 @@ void frame_parser_init(frame_parser_t *parser, frame_handler_t on_frame, void *c
  */
 void frame_parser_feed(frame_parser_t *parser, const uint8_t *data, size_t size);
 
+/**
+ * @brief Builds a frame (STX | LEN | CID | FS | payload | ETX | LRC), the inverse of parsing.
+ *
+ * @param out         Output buffer.
+ * @param out_size    Size of out; the frame needs payload_len + 9 bytes.
+ * @param cid         Command id.
+ * @param payload     Payload bytes.
+ * @param payload_len Number of payload bytes; LEN (payload_len + 4) must not exceed FRAME_MAX_LEN.
+ * @return Frame size in bytes, or 0 if out is too small or the payload too long.
+ */
+size_t frame_build(uint8_t *out, size_t out_size, char cid, const uint8_t *payload, size_t payload_len);
+
 #endif // FRAME_PARSER_H
