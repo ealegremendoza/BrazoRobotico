@@ -311,6 +311,35 @@ El peor caso cuadrático no importa: n ≤ 133 y a 115200 baudios sobra tiempo. 
 - **Valida formato, no rango:** `+9999` es un campo bien formado y se acepta; el recorte a ±3142 lo hace `mrad_to_counts()`. Una responsabilidad por función.
 - **Módulo propio**, no dentro de `frame_parser`: el parser no sabe qué significa cada CID. Acá va a vivir también el armado del payload de la `M` de feedback.
 
+### Cómo funciona `m_payload_parse()`
+
+Cada campo tiene posición fija (5 bytes + FS): el joint `j` empieza en `j × 6`.
+
+```
+índice: 0    5  6    11 12   17 18   23 24   29 30   34
+        +1571 FS -0785 FS +0000 FS -3142 FS +3142 FS -0001
+        └ j0 ┘   └ j1 ┘   └ j2 ┘   └ j3 ┘   └ j4 ┘   └ j5 ┘
+```
+
+1. **Tamaño exacto primero** (`payload_len != M_PAYLOAD_SIZE` → `false`). No es solo formato: es lo que hace seguros los accesos por posición fija que siguen (`payload[34]`, etc.) sin chequear límites en cada uno. Con un payload de 20 bytes sin este chequeo se leería memoria fuera del buffer.
+2. **Recorrer los 6 campos:** `field = payload + j * (M_PAYLOAD_FIELD_SIZE + 1)` apunta al signo del joint `j`. `field[-1]` es el byte anterior, el separador: en C un índice negativo sobre un puntero es válido (`field[-1]` = `*(field - 1)`). Para `j = 0` no hay separador antes, de ahí el `j > 0`.
+3. **`parse_field()` decodifica cada campo:** signo `+`/`-` obligatorio, después 4 dígitos. `field[i] - '0'` da el valor del dígito porque en ASCII son consecutivos (`'0'` = 48 … `'9'` = 57); `magnitude * 10 + dígito` va corriendo los dígitos a la izquierda. El signo se aplica al final (`"-0000"` → 0).
+
+   | Dígito | Cuenta | `magnitude` |
+   |---|---|---|
+   | `'1'` | 0 × 10 + 1 | 1 |
+   | `'5'` | 1 × 10 + 5 | 15 |
+   | `'7'` | 15 × 10 + 7 | 157 |
+   | `'1'` | 157 × 10 + 1 | 1571 |
+
+4. **Todo o nada:** los valores van a un array local (`values`) y se copian a `mrad` solo si los 6 son válidos. Escribiendo directo en `mrad`, una trama con el último campo roto dejaría 5 joints nuevos y 1 viejo: el brazo iría a una pose que nadie pidió.
+
+**Por qué no `sscanf` / `strtol`:**
+
+- El payload **no termina en `\0`** (apunta dentro del buffer del parser) y esas funciones asumen strings terminados.
+- Son **más permisivas** que el formato: `strtol` acepta espacios al principio, signo opcional y cualquier cantidad de dígitos. El protocolo exige exactamente signo + 4 dígitos (el `%+05ld` del plugin).
+- `sscanf` arrastra todo el motor de formatos: pesado para un micro.
+
 ## Recepción desde la PC (`pc_rx_task` en `esp32_arm.c`)
 
 - `pc_rx_task` lee bloques de hasta 64 bytes de UART0 (`uart_read_bytes`, timeout 20 ms) y se los pasa a `frame_parser_feed()`. El `frame_parser_t` es `static` dentro de la tarea (133 bytes fuera del stack). Stack 4096, prioridad 10.
