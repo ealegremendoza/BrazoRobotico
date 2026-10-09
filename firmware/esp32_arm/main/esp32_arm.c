@@ -8,11 +8,21 @@
 #include "esp_log.h"
 
 #include "board_pins.h"
+#include "frame_parser.h"
+#include "m_payload.h"
+#include "servo_units.h"
 
 // RX ring buffers must be larger than the 128-byte hardware FIFO.
 // The PC buffer holds several frames: an M frame is 44 bytes, a D frame up to ~130.
 #define PC_UART_RX_BUF_SIZE 1024
 #define SERVOS_UART_RX_BUF_SIZE 256
+
+// Bytes read from UART0 per call; any size works, frame_parser_feed() handles chunking.
+#define PC_RX_CHUNK_SIZE 64
+// Max wait for the first byte: short, so the task stays responsive but doesn't spin.
+#define PC_RX_TIMEOUT_MS 20
+#define PC_RX_TASK_STACK_SIZE 4096
+#define PC_RX_TASK_PRIORITY 10
 
 static const char *TAG = "ESP32-ARM";
 
@@ -47,7 +57,79 @@ static void init_uarts(void)
              SERVOS_UART_TX_PIN, SERVOS_UART_RX_PIN);
 }
 
+/**
+ * @brief Handles an M frame: decodes the joint angles and converts them to servo counts.
+ *
+ * @param payload     Payload bytes (between FS and ETX).
+ * @param payload_len Number of bytes in payload.
+ */
+static void handle_m_frame(const uint8_t *payload, size_t payload_len)
+{
+    int32_t mrad[M_PAYLOAD_JOINTS];
+    if (!m_payload_parse(payload, payload_len, mrad)) {
+        ESP_LOGW(TAG, "M: malformed payload (%u bytes), frame ignored", (unsigned)payload_len);
+        return;
+    }
+
+    int32_t counts[M_PAYLOAD_JOINTS];
+    for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
+        counts[j] = mrad_to_counts(mrad[j]);
+    }
+
+    // TODO(E06): SYNC_WRITE counts to the servos and reply with an M feedback frame.
+    ESP_LOGI(TAG, "M: mrad [%ld %ld %ld %ld %ld %ld] -> counts [%ld %ld %ld %ld %ld %ld]",
+             (long)mrad[0], (long)mrad[1], (long)mrad[2], (long)mrad[3], (long)mrad[4],
+             (long)mrad[5], (long)counts[0], (long)counts[1], (long)counts[2], (long)counts[3],
+             (long)counts[4], (long)counts[5]);
+}
+
+/**
+ * @brief frame_parser callback: dispatches each valid frame by its command id.
+ *
+ * @param cid         Command id.
+ * @param payload     Payload bytes, only valid during the call.
+ * @param payload_len Number of bytes in payload.
+ * @param ctx         Unused.
+ */
+static void on_pc_frame(char cid, const uint8_t *payload, size_t payload_len, void *ctx)
+{
+    (void)ctx;
+
+    switch (cid) {
+    case 'M':
+        handle_m_frame(payload, payload_len);
+        break;
+    default:
+        // D, S and the rest arrive with E09.
+        ESP_LOGW(TAG, "Unhandled CID '%c' (%u payload bytes)", cid, (unsigned)payload_len);
+        break;
+    }
+}
+
+/**
+ * @brief Reads bytes from the PC link (UART0) and feeds them to the frame parser.
+ *
+ * @param arg Unused.
+ */
+static void pc_rx_task(void *arg)
+{
+    (void)arg;
+
+    // static: the parser holds a 133-byte buffer, keep it off the task stack.
+    static frame_parser_t parser;
+    frame_parser_init(&parser, on_pc_frame, NULL);
+
+    uint8_t chunk[PC_RX_CHUNK_SIZE];
+    while (1) {
+        int n = uart_read_bytes(PC_UART_PORT, chunk, sizeof(chunk), pdMS_TO_TICKS(PC_RX_TIMEOUT_MS));
+        if (n > 0) {
+            frame_parser_feed(&parser, chunk, (size_t)n);
+        }
+    }
+}
+
 void app_main(void)
 {
     init_uarts();
+    xTaskCreate(pc_rx_task, "pc_rx", PC_RX_TASK_STACK_SIZE, NULL, PC_RX_TASK_PRIORITY, NULL);
 }
