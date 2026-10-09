@@ -417,6 +417,28 @@ Protocolo validado contra el manual oficial y el mapa de registros del ST3215: v
 2. **Driver alimentado**, brazo despejado y la mano cerca del interruptor: `./tools/send_m.py 0 0 0 0 0 0` (pose cero de calibración).
 3. Movimientos chicos de un solo joint: `./tools/send_m.py 200 0 0 0 0 0`.
 
+Con el driver **sin alimentar** ningún servo responde: la consola muestra `SYNC_READ: not every servo answered` por cada trama y `send_m.py` dice `got 0 reply frame(s)`. Es lo esperado en el paso 1. Con el driver alimentado, `send_m.py` imprime cada `M` de feedback (`Reply M: ... mrad`).
+
+## `M` de feedback (lectura de posiciones)
+
+Ciclo completo por cada `M` de la PC (modelo request/response de `[R09]`):
+
+```
+M de la PC → SYNC_WRITE (mover) → SYNC_READ (¿dónde están?) → M de feedback a la PC
+```
+
+- **`SYNC_READ`** (`servo_bus_build_sync_read_pos()`): `FF FF FE 0A 82 38 02 01..06 chk` — lee 2 bytes desde el registro 56 (posición actual) de los 6 servos. Length = N + 4 (sección SYNC READ del manual). Cada servo responde con su propio paquete de estado (`FF FF ID 04 ERROR lo hi chk`, 8 bytes), en el orden de los IDs pedidos.
+- **`servo_bus_parse_positions()`**: busca la respuesta de cada servo en orden y saltea todo lo demás de a 1 byte (misma idea que el parser de tramas): ruido, checksums malos o un **eco** de nuestros propios paquetes. No se sabe si el adaptador devuelve lo que transmite (el SDK de Python también ignora paquetes con otro ID, así que tolera eco): el código funciona en los dos casos. Aplica el bit de signo (bit 15) y junta los bytes de ERROR con OR. Todo o nada.
+- **`read_servo_positions()`** (`esp32_arm.c`): `uart_flush_input()` antes del `SYNC_WRITE` (solo cuentan las respuestas de este ciclo), manda el `SYNC_READ` y junta respuestas hasta que estén todas o pasen `SERVO_READ_TIMEOUT_MS` (10 ms). Primero pide los 48 bytes esperados y después de a 8: con el tick de FreeRTOS a 100 Hz, `uart_read_bytes()` espera hasta llenar lo pedido o el timeout, así que pedir de a poco hace que vuelva apenas llega cada respuesta.
+- **Sin respuesta de todos los servos → no se manda feedback:** la PC detecta la trama faltante (diseño de `[R09]`). Warning en consola.
+- **Errores de servo** (byte ERROR ≠ 0: sobrecarga, temperatura, etc.): se loguean solo cuando cambian, para no inundar la consola a 50 Hz.
+- **`send_m_feedback()`**: `counts_to_mrad()` → `m_payload_format()` → `frame_build()` → UART0.
+- **`m_payload_format()`**: inversa de `m_payload_parse()`, mismo formato que el plugin (`%+05ld`, FS). Recorta a ±9999 para que cada campo siga siendo de 5 chars.
+- **`frame_build()`** (en `frame_parser`): arma `STX | LEN | CID | FS | payload | ETX | LRC`.
+- **`tools/send_m.py`** lee y decodifica las respuestas (mismas reglas que el parser en C) y al final dice cuántas llegaron. Descarta lo recibido durante el arranque (mensajes de la ROM por UART0).
+- Tiempos a 1 Mbaud: `SYNC_WRITE` 56 bytes + `SYNC_READ` 14 + 6 respuestas × 8 = 118 bytes ≈ 1.2 ms (el registro 7, "Return delay", es 0 por defecto). Muy por debajo del ciclo de 20 ms.
+- Sin probar con los servos todavía.
+
 ## Tests en la PC (`test_host/`)
 
 Funciones puras (sin hardware): se compilan con `gcc`, sin ESP-IDF. Desde `firmware/esp32_arm`:
@@ -435,9 +457,9 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
     test_host/test_servo_bus.c main/servo_bus.c -o /tmp/test_servo_bus && /tmp/test_servo_bus
 ```
 
-- `test_frame_parser.c` (12 casos): trama `M` de 44 bytes con LEN `0039`, byte a byte, incompleta que espera, 50 tramas en un solo bloque (más grande que el buffer), basura/log antes, 1000 bytes sin STX, LRC/ETX/FS malos, trama buena dentro de una corrupta, LEN corrupto que demora, LEN inválidos (`9999`, `0129`, `0003`, `00a9`) y límites (LEN 4 y 128), dos tramas cortadas en cada punto posible.
-- `test_m_payload.c`: payload válido (signos, ceros, ±3142), fuera de rango bien formado (se acepta), 10 malformados (vacío, 5 o 7 joints, sin signo, espacio como signo, letra, último campo malo, coma en vez de FS, campo corto + largo, FS al final): todos devuelven `false` y dejan la salida intacta.
-- `test_servo_bus.c`: paquete de 2 servos idéntico byte a byte al ejemplo 2 de `[E04]`; 6 servos (56 bytes, Length, little-endian, suma del receptor = `0xFF`); buffer un byte corto; Length desbordado (31 servos entran, 32 no).
+- `test_frame_parser.c` (14 casos): trama `M` de 44 bytes con LEN `0039`, byte a byte, incompleta que espera, 50 tramas en un solo bloque (más grande que el buffer), basura/log antes, 1000 bytes sin STX, LRC/ETX/FS malos, trama buena dentro de una corrupta, LEN corrupto que demora, LEN inválidos (`9999`, `0129`, `0003`, `00a9`) y límites (LEN 4 y 128), dos tramas cortadas en cada punto posible; `frame_build()` igual byte a byte a la trama de `send_m.py`, ida y vuelta por el parser y límites.
+- `test_m_payload.c`: payload válido (signos, ceros, ±3142), fuera de rango bien formado (se acepta), 10 malformados (vacío, 5 o 7 joints, sin signo, espacio como signo, letra, último campo malo, coma en vez de FS, campo corto + largo, FS al final): todos devuelven `false` y dejan la salida intacta; `m_payload_format()` igual al formato del plugin, recorte a ±9999, `parse(format(x)) == x` para todo [−3142, 3142].
+- `test_servo_bus.c`: paquete de 2 servos idéntico byte a byte al ejemplo 2 de `[E04]`; 6 servos (56 bytes, Length, little-endian, suma del receptor = `0xFF`); buffer un byte corto; Length desbordado (31 servos entran, 32 no); `SYNC_READ` de 6 servos (Length N + 4, suma `0xFF`); respuesta del ejemplo 2 del manual (`FF FF 01 04 00 18 05 DD` → 1304); 6 respuestas después de un eco y ruido, bit de signo y ERROR; servo que no responde, checksum malo y orden equivocado (salida intacta).
 - `test_servo_units.c`: valores conocidos, contra `round()` en punto flotante en todo el rango, extremos sin overflow (`INT32_MIN/MAX`), ida y vuelta.
 - ASan/UBSan detectan accesos fuera del buffer y overflow de enteros que un test "pasa/falla" no vería.
 
@@ -464,5 +486,6 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 - [ ] Plugin de `[R09]`: tolerar el reset del ESP32 al abrir el puerto (sin respuestas los primeros ~300 ms)
 - [x] Enviar `SYNC_WRITE` al bus de servos (`servo_bus.{h,c}`, velocidad/aceleración en Kconfig), con tests en la PC
 - [ ] Probar el `SYNC_WRITE` con el brazo (ver "Prueba con el brazo")
-- [ ] Leer las posiciones reales y responder con una `M` de feedback
+- [x] Leer las posiciones reales (`SYNC_READ`) y responder con una `M` de feedback, con tests en la PC
+- [ ] Probar la `M` de feedback con el brazo
 - [ ] Comprar adaptador USB-serie TTL 3.3V
