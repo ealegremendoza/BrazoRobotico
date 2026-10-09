@@ -225,6 +225,43 @@ Decisiones:
 - **Valida formato, no rango:** `+9999` es un campo bien formado y se acepta; el recorte a ±3142 lo hace `mrad_to_counts()`. Una responsabilidad por función.
 - **Módulo propio**, no dentro de `frame_parser`: el parser no sabe qué significa cada CID. Acá va a vivir también el armado del payload de la `M` de feedback.
 
+## Recepción desde la PC (`pc_rx_task` en `esp32_arm.c`)
+
+- `pc_rx_task` lee bloques de hasta 64 bytes de UART0 (`uart_read_bytes`, timeout 20 ms) y se los pasa a `frame_parser_feed()`. El `frame_parser_t` es `static` dentro de la tarea (133 bytes fuera del stack). Stack 4096, prioridad 10.
+- `on_pc_frame` (callback del parser): `switch (cid)`; `M` → `handle_m_frame`; otros CID (D, S, ... llegan con `[E09]`) → warning.
+- `handle_m_frame`: `m_payload_parse()` → `mrad_to_counts()` por joint → log. `TODO(E06)`: `SYNC_WRITE` y `M` de feedback.
+
+### `tools/send_m.py`
+
+Arma la trama `M` igual que el `write()` del plugin y la manda por `/dev/ttyACM0`:
+
+```
+firmware/esp32_arm/tools/send_m.py 1571 -785 0 -3142 3142 -1
+firmware/esp32_arm/tools/send_m.py --count 100 0 0 0 0 0 0   # 2 s a 50 Hz, como ros2_control
+```
+
+### Prueba de punta a punta (PC → ESP32)
+
+Con `--count 100` (100 tramas a 50 Hz) y el analizador en GPIO14:
+
+```
+I (279) main_task: Returned from app_main()
+I (309) ESP32-ARM: M: mrad [1571 -785 0 -3142 3142 -1] -> counts [3072 1536 2048 0 4095 2047]
+I (339) ESP32-ARM: M: mrad [1571 -785 0 -3142 3142 -1] -> counts [3072 1536 2048 0 4095 2047]
+...  (una cada ~20 ms hasta I (2049))
+```
+
+- `UART0 → frame_parser → m_payload → mrad_to_counts` da exactamente los valores calculados en la PC.
+- Ritmo estable de ~20 ms (50 Hz) sin acumular atraso; los saltos ocasionales de 30 ms son del `sleep` de Python.
+- ~88 de 100 tramas: las ~12 que llegaron durante el arranque se perdieron.
+
+### Abrir el puerto resetea el ESP32
+
+- **Síntoma:** con una sola trama (sin `--count`) aparecía un log de arranque y ninguna `M:`.
+- **Causa:** en Linux el kernel activa DTR/RTS al abrir el puerto, antes de que pyserial aplique `dtr = False` / `rts = False`. En las placas ESP32 esas líneas manejan EN y GPIO0 (circuito de auto-reset): la placa se reinicia y la trama llega mientras arranca (~300 ms hasta `app_main`).
+- **Arreglo en el script:** `--boot-wait-ms` (default 500) espera después de abrir el puerto. Poner `dtr`/`rts` en `False` antes de abrir se mantiene: evita dejar la placa en reset o en modo descarga, aunque no evita el pulso del `open`.
+- **Para el plugin de `[R09]`:** al activarse, `ros2_control` también va a resetear el ESP32. Las primeras `M` se pierden, pero el plugin manda una en cada ciclo, así que se recupera solo en ~300 ms. Las respuestas que no llegan en ese lapso no deben tratarse como falla de comunicación.
+
 ## Tests en la PC (`test_host/`)
 
 Funciones puras (sin hardware): se compilan con `gcc`, sin ESP-IDF. Desde `firmware/esp32_arm`:
@@ -264,7 +301,8 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 - [x] Parser de tramas del protocolo de `[R09]` (`frame_parser.{h,c}`), con tests en la PC
 - [x] Tests de `servo_units` guardados en `test_host/` (antes eran archivos sueltos en la carpeta temporal)
 - [x] Parsear el payload de `M` (6 joints de 5 chars con signo, separados por FS): `m_payload_parse()`, con tests en la PC
-- [ ] Tarea que lee UART0 y alimenta el parser
+- [x] Tarea que lee UART0 y alimenta el parser (`pc_rx_task`): probada de punta a punta con `tools/send_m.py`
+- [ ] Plugin de `[R09]`: tolerar el reset del ESP32 al abrir el puerto (sin respuestas los primeros ~300 ms)
 - [ ] Enviar `SYNC_WRITE` al bus de servos
 - [ ] Leer las posiciones reales y responder con una `M` de feedback
 - [ ] Comprar adaptador USB-serie TTL 3.3V
