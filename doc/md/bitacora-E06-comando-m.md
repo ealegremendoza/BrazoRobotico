@@ -167,7 +167,7 @@ El ESP32 no necesita guardar calibración: no hace falta SD ni que la PC la env�
 - [x] Configurar la consola en `menuconfig` (UART1, TX 14, RX 27)
 - [ ] Verificar con el analizador si GPIO14 saca PWM durante un reset
 - [ ] Puerto serie configurable en el plugin (fuera de E06, pasó al backlog como `[R13]`): hoy `/dev/ttyACM0` está fijo en `robotic_arm_ros2_control.xacro`; con la DevKitC (CP2102) es `/dev/ttyUSB0` y no conectaría. Opciones: argumento del launch o regla udev con nombre fijo (p. ej. `/dev/robotic_arm`)
-- [ ] Migrar `board_pins.h` a `Kconfig.projbuild` (pines y baudrates de UART2, baudrate de UART0; puertos y pines de UART0 quedan fijos). Ojo: el rango `1200..115200` de `esp32_bridge` rechaza 1000000
+- [x] Migrar `board_pins.h` a `Kconfig.projbuild` (menú "Robotic Arm Configuration"): `ARM_PC_UART_BAUD_RATE` (115200), `ARM_SERVO_UART_BAUD_RATE` (1000000), `ARM_SERVO_UART_TX_GPIO` (17), `ARM_SERVO_UART_RX_GPIO` (16). Puertos y pines de UART0 quedan fijos en `board_pins.h`, que ahora mapea sus nombres a `CONFIG_ARM_*` (los `.c` no cambian). Baudrates con rango 9600..5000000 (el `1200..115200` de `esp32_bridge` rechazaba 1000000); GPIO con rango `0..SOC_GPIO_OUT_RANGE_MAX` (TX, excluye los de solo entrada 34-39) y `0..SOC_GPIO_IN_RANGE_MAX` (RX). Los defaults del Kconfig ya son los valores elegidos: no van en `sdkconfig.defaults`
 - [x] `sdkconfig.defaults` versionado (target + consola). `Kconfig.projbuild` **crea** opciones; `sdkconfig.defaults` **elige valores** (propios y de ESP-IDF); `sdkconfig` es el resultado local
 - [ ] `mrad_to_counts(int32_t mrad)` con redondeo simétrico
 - [ ] Comprar adaptador USB-serie TTL 3.3V
