@@ -229,7 +229,7 @@ Decisiones:
 
 - `pc_rx_task` lee bloques de hasta 64 bytes de UART0 (`uart_read_bytes`, timeout 20 ms) y se los pasa a `frame_parser_feed()`. El `frame_parser_t` es `static` dentro de la tarea (133 bytes fuera del stack). Stack 4096, prioridad 10.
 - `on_pc_frame` (callback del parser): `switch (cid)`; `M` → `handle_m_frame`; otros CID (D, S, ... llegan con `[E09]`) → warning.
-- `handle_m_frame`: `m_payload_parse()` → `mrad_to_counts()` por joint → log. `TODO(E06)`: `SYNC_WRITE` y `M` de feedback.
+- `handle_m_frame`: `m_payload_parse()` → `mrad_to_counts()` por joint → `SYNC_WRITE` por UART2 → log. `TODO(E06)`: `M` de feedback (ver "Movimiento de los servos").
 
 ### `tools/send_m.py`
 
@@ -262,6 +262,31 @@ I (339) ESP32-ARM: M: mrad [1571 -785 0 -3142 3142 -1] -> counts [3072 1536 2048
 - **Arreglo en el script:** `--boot-wait-ms` (default 500) espera después de abrir el puerto. Poner `dtr`/`rts` en `False` antes de abrir se mantiene: evita dejar la placa en reset o en modo descarga, aunque no evita el pulso del `open`.
 - **Para el plugin de `[R09]`:** al activarse, `ros2_control` también va a resetear el ESP32. Las primeras `M` se pierden, pero el plugin manda una en cada ciclo, así que se recupera solo en ~300 ms. Las respuestas que no llegan en ese lapso no deben tratarse como falla de comunicación.
 
+## Movimiento de los servos (`main/servo_bus.{h,c}`)
+
+Cada trama `M` válida se traduce en **un** paquete `SYNC_WRITE` broadcast al bus (protocolo de `[E04]`, ver `doc/md/bitacora-E04-protocolo-driver.md`):
+
+```
+FF FF | FE | Length | 83 | 29 | 07 | [ID acc posL posH 0 0 spdL spdH] × 6 | checksum
+```
+
+- `servo_bus_build_sync_write_pos(out, out_size, targets, count)` solo arma el paquete (no sabe nada de la UART, como el parser). `servo_target_t` = ID, posición (cuentas), velocidad, aceleración.
+- Bloque de 7 registros desde `ACC` (41): acc, posición (little-endian), time (0, no se usa: manda la velocidad), velocidad. Mismo bloque que `SyncWritePosEx` del SDK.
+- Checksum = `~(ID + Length + ... + último parámetro) & 0xFF` (todo menos `FF FF`).
+- Con 6 servos: 8 + 6 × 8 = **56 bytes**, Length `0x34`. A 1 Mbaud son ~0.56 ms.
+- Broadcast: los servos **no responden** (fire and forget). Devuelve 0 si el buffer no alcanza o si el Length (1 byte) se desborda (más de 31 servos).
+- **Orden de joints:** el joint j del payload va al servo ID j + 1 (`shoulder_pan` = 1 … `gripper` = 6), el mismo orden de `robotic_arm_ros2_control.xacro` y de `STServo_Python`.
+- **Velocidad y aceleración en Kconfig:** `ARM_SERVO_MOVE_SPEED` (default 300 pasos/s ≈ 26°/s, máx. 3400) y `ARM_SERVO_MOVE_ACC` (default 10 = 1000 pasos/s²). Mismos defaults que `servo_control_ui.py`: lentos y seguros para la puesta en marcha. Muy bajos hacen que el brazo se atrase respecto de las trayectorias de MoveIt; ajustar después de probar.
+- Compila y el paquete coincide byte a byte con el ejemplo de `[E04]` en el test. **Sin probar con los servos todavía.**
+
+### Prueba con el brazo (pendiente)
+
+⚠️ Desde este firmware cada `M` mueve los motores. Los valores de las pruebas anteriores (`1571 -785 0 -3142 3142 -1`) mandan joints a los extremos: no usarlos.
+
+1. **Driver sin alimentar**, analizador en GPIO17 (Async Serial a 1000000): mandar una trama y ver el paquete `FF FF FE 34 83 29 07 ...` de 56 bytes.
+2. **Driver alimentado**, brazo despejado y la mano cerca del interruptor: `./tools/send_m.py 0 0 0 0 0 0` (pose cero de calibración).
+3. Movimientos chicos de un solo joint: `./tools/send_m.py 200 0 0 0 0 0`.
+
 ## Tests en la PC (`test_host/`)
 
 Funciones puras (sin hardware): se compilan con `gcc`, sin ESP-IDF. Desde `firmware/esp32_arm`:
@@ -275,10 +300,14 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 
 gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
     test_host/test_m_payload.c main/m_payload.c -o /tmp/test_m_payload && /tmp/test_m_payload
+
+gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
+    test_host/test_servo_bus.c main/servo_bus.c -o /tmp/test_servo_bus && /tmp/test_servo_bus
 ```
 
 - `test_frame_parser.c` (12 casos): trama `M` de 44 bytes con LEN `0039`, byte a byte, incompleta que espera, 50 tramas en un solo bloque (más grande que el buffer), basura/log antes, 1000 bytes sin STX, LRC/ETX/FS malos, trama buena dentro de una corrupta, LEN corrupto que demora, LEN inválidos (`9999`, `0129`, `0003`, `00a9`) y límites (LEN 4 y 128), dos tramas cortadas en cada punto posible.
 - `test_m_payload.c`: payload válido (signos, ceros, ±3142), fuera de rango bien formado (se acepta), 10 malformados (vacío, 5 o 7 joints, sin signo, espacio como signo, letra, último campo malo, coma en vez de FS, campo corto + largo, FS al final): todos devuelven `false` y dejan la salida intacta.
+- `test_servo_bus.c`: paquete de 2 servos idéntico byte a byte al ejemplo 2 de `[E04]`; 6 servos (56 bytes, Length, little-endian, suma del receptor = `0xFF`); buffer un byte corto; Length desbordado (31 servos entran, 32 no).
 - `test_servo_units.c`: valores conocidos, contra `round()` en punto flotante en todo el rango, extremos sin overflow (`INT32_MIN/MAX`), ida y vuelta.
 - ASan/UBSan detectan accesos fuera del buffer y overflow de enteros que un test "pasa/falla" no vería.
 
@@ -303,6 +332,7 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 - [x] Parsear el payload de `M` (6 joints de 5 chars con signo, separados por FS): `m_payload_parse()`, con tests en la PC
 - [x] Tarea que lee UART0 y alimenta el parser (`pc_rx_task`): probada de punta a punta con `tools/send_m.py`
 - [ ] Plugin de `[R09]`: tolerar el reset del ESP32 al abrir el puerto (sin respuestas los primeros ~300 ms)
-- [ ] Enviar `SYNC_WRITE` al bus de servos
+- [x] Enviar `SYNC_WRITE` al bus de servos (`servo_bus.{h,c}`, velocidad/aceleración en Kconfig), con tests en la PC
+- [ ] Probar el `SYNC_WRITE` con el brazo (ver "Prueba con el brazo")
 - [ ] Leer las posiciones reales y responder con una `M` de feedback
 - [ ] Comprar adaptador USB-serie TTL 3.3V
