@@ -20,6 +20,7 @@ El resto del firmware (máquina de estados, parada de emergencia, comandos `E`/`
 - **`sdkconfig` no se versiona** (lo ignora el `.gitignore`, igual que en `esp32_bridge`): lo configurado con `menuconfig` no viaja con el repo. Lo esencial (target + consola) va en `sdkconfig.defaults`, versionado.
 - **`sdkconfig.defaults`:** mismo formato que `sdkconfig` (`CONFIG_X=valor`, `#` comentarios); solo las opciones elegidas a mano, no las derivadas (`CONFIG_ESP_CONSOLE_UART=y`, `..._UART_NUM=1`) ni los alias deprecados (`CONFIG_CONSOLE_UART_*`). Verificado generando un `sdkconfig` desde cero solo con este archivo.
 - **Prioridad por opción:** `sdkconfig` > `sdkconfig.defaults` > default del Kconfig. Si `sdkconfig` ya existe, cambiar el `.defaults` **no lo modifica** (hay que borrar `sdkconfig` o cambiarlo también en `menuconfig`). Al cambiar algo en `menuconfig` que se quiera conservar, copiarlo al `.defaults`.
+  - **Caso real:** se agregó `CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y` al `.defaults` con un `sdkconfig` local ya existente (con 2MB). La verificación en una carpeta limpia dio 4MB, pero el firmware grabado arrancó con `SPI Flash Size : 2MB` y el warning `Detected size(4096k) larger than the size in the binary image header(2048k)`. Arreglo: borrar el `sdkconfig` local (se regenera desde el `.defaults`, que tiene todo lo configurado) o cambiarlo en `menuconfig` (`Serial flasher config → Flash size`).
 - `idf.py save-defconfig` genera el `.defaults` con todo lo que difiere del default, pero **sobrescribe** el archivo y borra los comentarios: usarlo solo para ver diferencias.
 
 ## Placa
@@ -104,7 +105,7 @@ Descartes:
 | GPIO12 como RX | **Strapping:** define la tensión de la flash (bajo = 3.3V, alto = 1.8V). Una UART en reposo mantiene su TX en alto: con el adaptador conectado, al arrancar GPIO12 queda en alto, la flash recibe 1.8V y el ESP32 no bootea (sin ningún log). `esptool` lo muestra: "Flash voltage set by a strapping pin to 3.3V". |
 | GPIO14 como RX | Según [Random Nerd Tutorials](https://randomnerdtutorials.com/esp32-pinout-reference-gpios/) saca PWM al arrancar (lastminuteengineers no lo menciona; las fuentes no coinciden). Como RX, el PWM del ESP32 pelearía con el TX del adaptador (dos salidas en el mismo cable). |
 
-**Decisión: TX = GPIO14, RX = GPIO27.** Con los pines invertidos el diseño es seguro sea cierto o no lo del PWM: si existe, sale por TX hacia la entrada del adaptador y como mucho aparecen caracteres basura en la consola al arrancar. Pendiente: confirmar con el analizador mirando GPIO14 durante un reset.
+**Decisión: TX = GPIO14, RX = GPIO27.** Con los pines invertidos el diseño es seguro sea cierto o no lo del PWM: si existe, sale por TX hacia la entrada del adaptador y como mucho aparecen caracteres basura en la consola al arrancar. **Medido:** con el analizador en GPIO14 durante un reset no aparece ningún PWM antes del log del bootloader. En esta placa lo de Random Nerd Tutorials no se cumple; la elección igual queda como TX por ser segura en cualquier placa.
 
 ### Cómo leer la consola
 
@@ -198,9 +199,10 @@ Además:
 - [x] Elegir los pines de la consola (UART1): TX 14, RX 27
 - [x] `board_pins.h` con puertos, pines y baudrates de UART0 (PC) y UART2 (servos)
 - [x] Agregar a `board_pins.h` los pines de UART0 (TX 1, RX 3), con comentario de por qué son fijos
-- [x] Reconectar los pines de UART0 con `uart_set_pin()` en el código: `init_uarts()` en `esp32_arm.c` levanta UART0 (PC) y UART2 (servos) con `uart_driver_install` → `uart_param_config` → `uart_set_pin`, todo desde `board_pins.h`. RX buffer: PC 1024 (varias tramas `M`/`D`), servos 256; ambos > FIFO de 128 (mínimo de `uart_driver_install`). Sin buffer de TX (`uart_write_bytes()` bloquea hasta el FIFO). Compila; falta probar en la placa (log de arranque por GPIO14 con el analizador)
+- [x] Reconectar los pines de UART0 con `uart_set_pin()` en el código: `init_uarts()` en `esp32_arm.c` levanta UART0 (PC) y UART2 (servos) con `uart_driver_install` → `uart_param_config` → `uart_set_pin`, todo desde `board_pins.h`. RX buffer: PC 1024 (varias tramas `M`/`D`), servos 256; ambos > FIFO de 128 (mínimo de `uart_driver_install`). Sin buffer de TX (`uart_write_bytes()` bloquea hasta el FIFO). **Probado en la placa (30 pines):** el log de arranque sale completo por GPIO14 (analizador, Async Serial 115200) y `init_uarts()` corre sin que aborte ningún `ESP_ERROR_CHECK`: `ESP32-ARM: PC link on UART0 @ 115200 baud, servo bus on UART2 @ 1000000 baud (TX=17, RX=16)` (firmware `c5334b1`)
 - [x] Configurar la consola en `menuconfig` (UART1, TX 14, RX 27)
-- [ ] Verificar con el analizador si GPIO14 saca PWM durante un reset
+- [x] Verificar con el analizador si GPIO14 saca PWM durante un reset: no saca PWM
+- [ ] Regenerar el `sdkconfig` local para que tome la flash de 4MB (hoy arranca con 2MB)
 - [ ] Puerto serie configurable en el plugin (fuera de E06, pasó al backlog como `[R13]`): hoy `/dev/ttyACM0` está fijo en `robotic_arm_ros2_control.xacro`; con la DevKitC (CP2102) es `/dev/ttyUSB0` y no conectaría. Opciones: argumento del launch o regla udev con nombre fijo (p. ej. `/dev/robotic_arm`)
 - [x] Migrar `board_pins.h` a `Kconfig.projbuild` (menú "Robotic Arm Configuration"): `ARM_PC_UART_BAUD_RATE` (115200), `ARM_SERVO_UART_BAUD_RATE` (1000000), `ARM_SERVO_UART_TX_GPIO` (17), `ARM_SERVO_UART_RX_GPIO` (16). Puertos y pines de UART0 quedan fijos en `board_pins.h`, que ahora mapea sus nombres a `CONFIG_ARM_*` (los `.c` no cambian). Baudrates con rango 9600..5000000 (el `1200..115200` de `esp32_bridge` rechazaba 1000000); GPIO con rango `0..SOC_GPIO_OUT_RANGE_MAX` (TX, excluye los de solo entrada 34-39) y `0..SOC_GPIO_IN_RANGE_MAX` (RX). Los defaults del Kconfig ya son los valores elegidos: no van en `sdkconfig.defaults`
 - [x] `sdkconfig.defaults` versionado (target + consola). `Kconfig.projbuild` **crea** opciones; `sdkconfig.defaults` **elige valores** (propios y de ESP-IDF); `sdkconfig` es el resultado local
