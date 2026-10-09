@@ -157,6 +157,41 @@ El ESP32 no necesita guardar calibración: no hace falta SD ni que la PC la env�
 - La división en C trunca hacia cero, así que `(x + den/2) / den` está mal para negativos (−1571 → −1023 en vez de −1024): redondear sobre el valor absoluto y restaurar el signo.
 - Nunca castear a `unsigned`.
 
+Implementación en `firmware/esp32_arm/main/servo_units.c`:
+
+```c
+int32_t delta = (abs(mrad) * COUNTS_PER_REV + MRAD_PER_REV / 2) / MRAD_PER_REV;
+//              (abs(mrad) * 4096           + 3141            ) / 6283
+if (mrad < 0) {
+    delta = -delta;
+}
+```
+
+`delta` es cuántas cuentas se aleja el servo del cero (2048). Tres pasos:
+
+1. **Regla de tres: `abs(mrad) * 4096 / 6283`.** Se multiplica primero y se divide después: dividiendo primero (`mrad / 6283`) el resultado entero daría casi siempre 0.
+2. **Redondeo: `+ 3141` antes de dividir.** La división entera descarta los decimales (`1023.9` → `1023`). Sumar la mitad del divisor (6283 / 2 = 3141) equivale a sumar 0.5 al cociente: si la parte decimal era ≥ 0.5 pasa al entero siguiente (redondea para arriba); si era < 0.5 no llega (trunca para abajo).
+3. **`abs()` y signo al final.** El truco del paso 2 solo sirve para positivos: con un negativo la división trunca hacia cero (para *arriba*) y sumar 3141 lo acerca todavía más a cero, redondeando para el lado equivocado.
+
+Ejemplo con −1571 mrad (valor exacto −1571 × 4096 / 6283 = −1024.2):
+
+| Paso | Cuenta | Resultado |
+|---|---|---|
+| `abs(-1571)` | | 1571 |
+| `× 4096` | 1571 × 4096 | 6434816 |
+| `+ 3141` | | 6437957 |
+| `/ 6283` | 1024.66 → trunca | 1024 |
+| signo | `mrad < 0` | −1024 |
+| `counts` | 2048 + (−1024) | **1024** |
+
+Con `(mrad * 4096 + 3141) / 6283` directo daba −1023 → 1025.
+
+Además:
+
+- **Clamp de la entrada a ±3142** antes de multiplicar: evita el overflow de `mrad * 4096` en `int32_t` (pasa con |mrad| > 524287) y garantiza que la salida nunca sea negativa.
+- **+π → 4096**, una más que la última cuenta válida: se recorta a 4095. Sin el recorte, 4096 (`0x1000`) en 12 bits se lee como 0, el extremo opuesto (con `wrist_roll`, límites 0..4095, daría casi una vuelta al revés).
+- Verificado con un test en la PC (`gcc`) contra `2048 + round()` en punto flotante para cada mrad de −3500 a 3500: 0 diferencias.
+
 ## Pendientes
 
 - [x] Crear `firmware/esp32_arm` (`set-target esp32`, `.gitignore`)
