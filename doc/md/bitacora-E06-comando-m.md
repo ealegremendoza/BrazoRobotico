@@ -427,6 +427,28 @@ Protocolo validado contra el manual oficial y el mapa de registros del ST3215: v
 - **Jumper amarillo del driver en A** (`UART – SERVO`). Con `STServo_Python` estaba en B (USB).
 - No unir 3.3V ni 5V del ESP32 con el driver: el ESP32 se alimenta por su USB; el driver, por su fuente de 9~12.6V.
 
+#### Con la DevKitC WROOM (38 pines) en la placa base
+
+En la protoboard la DevKitC tapa una hilera entera; para la prueba se usa la **DevKitC WROOM** sobre una placa base "ESP32S 38P/V4/Goouuu Expansion board" (fotos: `doc/img/esp32-38pines-base-1.jpeg`, `doc/img/esp32-38pines-base-2.jpeg`).
+
+- **Firmware sin cambios:** mismo chip y flash que la de 30 pines (ver "Placa"); `IO14`, `IO16`, `IO17` e `IO27` están en los conectores de la DevKitC V4 (esquemático). Hay que grabarla (hoy tiene otro firmware).
+- **Puerto `/dev/ttyUSB0`** (CP2102), no `ttyACM0`: `idf.py -p /dev/ttyUSB0 build flash` y `./tools/send_m.py --port /dev/ttyUSB0 ...`. Es el caso de `[R13]`: con el plugin de ROS no conectaría.
+- **Orden de pines verificado:** columna derecha de la base `GND, P23, P22, TX, RX, P21, GND, P19, P18, P5, P17, P16, ...` = J3 de la DevKitC (`P17` en la posición 11, como `IO17` en `[E01]`).
+
+| Base (serigrafía) | Contacto | Va a |
+|---|---|---|
+| `P17` | amarillo (S) | `TX` del driver **y** canal 1 del analizador |
+| `P16` | amarillo (S) | `RX` del driver |
+| `P14` | amarillo (S) | canal 0 del analizador |
+| cualquier `G` | negro | `GND` del driver **y** GND del analizador |
+
+Trampas:
+
+- ⚠️ **Cada pin tiene tres contactos S/V/G:** amarillo = señal (GPIO), **rojo = V** (tensión elegida con el jumper `JUMP`: 5V o 3.3V), negro = GND. Las señales van solo al amarillo. **Jumper `JUMP` en 3.3V:** si un cable cae por error en el rojo, el peor caso es 3.3V y no 5V en una entrada del driver.
+- ⚠️ **El conector `TX RX VCC GND` de abajo a la derecha es UART0** (GPIO1/3, el USB de la PC): el driver **no** va ahí. Misma trampa que `TXD`/`RXD` en la serigrafía de la DevKitC (en la WROOM, el bus de servos es `G17`/`G16`). El conector `D22 D21 VCC GND` es el I2C (reservado para un sensor futuro).
+- **Ancho:** dos tiras de zócalos a la izquierda (24.00 mm y 25.50 mm). La DevKitC mide ~25.4 mm entre hileras: va en la de 25.5 mm, sin forzar. Antena del lado de `3V3`/`GND`, USB del lado de `5V`/`CLK`.
+- **No usar las entradas de alimentación de la base** (jack 6.5–16V, USB-C, micro-USB): el ESP32 se alimenta por su USB, que además es el canal con la PC. Alimentar por los dos lados puede meter tensión en el USB de la PC.
+
 **Pasos** (desde `firmware/esp32_arm`, con `. ~/esp/esp-idf/export.sh`):
 
 1. **Driver sin alimentar:** `idf.py -p /dev/ttyACM0 build flash` y `./tools/send_m.py 0 0 0 0 0 0`. En el canal 1: `SYNC_WRITE` de 56 bytes (`FF FF FE 34 83 29 07 01 0A 00 08 00 00 2C 01 ...`) seguido del `SYNC_READ` de 14 (`FF FF FE 0A 82 38 02 01 02 03 04 05 06 ..`).
