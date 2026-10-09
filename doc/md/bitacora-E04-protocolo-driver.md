@@ -117,6 +117,32 @@ FF FF FE 14 83 29 07 01 32 00 08 00 00 F4 01 02 1E 00 04 00 00 2C 01 B9
 
 **Nada responde a este paquete** (broadcast → sin status packet, ver `protocol_packet_handler.py:234-236`). Para el brazo completo (6 servos) el paquete se arma igual, solo agregando más bloques de 8 bytes (uno por servo) antes del checksum.
 
+## Validación contra la documentación oficial
+
+El protocolo de arriba se derivó del **código del SDK** (`scservo_sdk`). Validado después (durante `[E06]`) contra:
+
+- **Manual de protocolo** de los servos serie Feetech ("Communication Protocol User Manual", publicado por Waveshare): `doc/datasheets/Communication_Protocol_User_Manual-EN(191218-0923).pdf` (origen: https://files.waveshare.com/upload/2/27/Communication_Protocol_User_Manual-EN%28191218-0923%29.pdf).
+- **Mapa de registros del ST3215** (V3.7): `doc/datasheets/ST3215 memory register map-EN.xls`.
+
+| Punto | Manual / mapa de registros | Lo documentado arriba |
+|---|---|---|
+| Encabezado | `0xFF 0xFF` | ✅ |
+| ID broadcast | 254 (`0xFE`): no responde, salvo PING | ✅ |
+| `SYNC WRITE` | instrucción `0x83` | ✅ |
+| Parámetros de `SYNC WRITE` | dirección inicial, L (bytes por servo), y por servo `ID + L datos` | ✅ |
+| Length de `SYNC WRITE` | `(L+1) × N + 4` → L = 7, N = 6: 52 (`0x34`) | ✅ |
+| Checksum | `~(ID + Length + Instrucción + parámetros)`, solo el byte bajo | ✅ |
+| Orden de bytes | servos de **encoder magnético** (el STS3215): byte bajo primero | ✅ little-endian |
+| Reg. 41 (`0x29`) | Acceleration, 1 byte, unidad 100 pasos/s² ("10 → 1000 pasos/s²") | ✅ |
+| Reg. 42 (`0x2A`) | Target location, 2 bytes, pasos | ✅ |
+| Reg. 44 (`0x2C`) | Operation time, 2 bytes | ✅ (se manda 0) |
+| Reg. 46 (`0x2E`) | Operation speed, 2 bytes, pasos/s | ✅ |
+| Reg. 56 (`0x38`) | Current location, 2 bytes, solo lectura | (para la `M` de feedback) |
+
+El **ejemplo 7 del manual** (`SYNC WRITE` a 4 servos desde `0x2A`, L = 6: `FF FF FE 20 83 2A 06 ... 58`) verificado en la PC: Length `0x20` = (6+1) × 4 + 4 y checksum calculado `0x58`, igual al del manual.
+
+**Ojo con el orden de bytes:** el manual aclara que depende del tipo de servo. Los de **potenciómetro** (serie SCS) usan **byte alto primero**. Si se cambia a servos SCS, el armado de paquetes (`firmware/esp32_arm/main/servo_bus.c`) tiene que invertir el orden.
+
 ## Conclusión
 
 Protocolo identificado y documentado por completo: header fijo `0xFF 0xFF`, ID, length, instrucción, parámetros, checksum de complemento a 1. Es el mismo protocolo que ya habla `STServo_Python` por USB — el firmware del ESP32 tiene que armar/parsear exactamente estas mismas tramas para reenviarlas por su UART hacia el driver.
