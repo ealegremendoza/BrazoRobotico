@@ -1,7 +1,21 @@
+/**
+ * @file servo_bus.c
+ * @brief STS3215 servo bus packet builders (see servo_bus.h).
+ */
+
 #include "servo_bus.h"
 
 #define HEADER_BYTE 0xFF
 
+/**
+ * @brief Builds a broadcast position SYNC_WRITE for several servos.
+ *
+ * @param out      Output buffer.
+ * @param out_size Size of out; at least SERVO_BUS_SYNC_WRITE_POS_SIZE(count).
+ * @param targets  One goal per servo.
+ * @param count    Number of servos.
+ * @return Packet size in bytes, or 0 if out is too small or Length would overflow.
+ */
 size_t servo_bus_build_sync_write_pos(uint8_t *out, size_t out_size, const servo_target_t *targets,
                                       size_t count)
 {

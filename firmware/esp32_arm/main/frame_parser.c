@@ -1,3 +1,8 @@
+/**
+ * @file frame_parser.c
+ * @brief PC <-> ESP32 frame reassembly (see frame_parser.h).
+ */
+
 #include "frame_parser.h"
 
 #include <string.h>
@@ -118,6 +123,13 @@ static void parse_buffer(frame_parser_t *parser)
     }
 }
 
+/**
+ * @brief Clears the buffer and sets the handler. Call before the first feed.
+ *
+ * @param parser   Parser to initialize.
+ * @param on_frame Handler called for every valid frame.
+ * @param ctx      User pointer passed back to on_frame.
+ */
 void frame_parser_init(frame_parser_t *parser, frame_handler_t on_frame, void *ctx)
 {
     parser->len = 0;
@@ -125,6 +137,13 @@ void frame_parser_init(frame_parser_t *parser, frame_handler_t on_frame, void *c
     parser->ctx = ctx;
 }
 
+/**
+ * @brief Consumes bytes and calls on_frame for every valid frame found.
+ *
+ * @param parser Parser state.
+ * @param data   Received bytes (any chunk size).
+ * @param size   Number of bytes in data.
+ */
 void frame_parser_feed(frame_parser_t *parser, const uint8_t *data, size_t size)
 {
     // Copy only what fits, parse (which frees space), repeat: the buffer never

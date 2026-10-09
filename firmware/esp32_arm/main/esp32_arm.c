@@ -1,3 +1,8 @@
+/**
+ * @file esp32_arm.c
+ * @brief Firmware entry point: UART setup, PC receive task and M command handling.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -27,6 +32,17 @@
 
 static const char *TAG = "ESP32-ARM";
 
+/**
+ * @brief Installs the UART driver and configures one port as 8N1 without flow control.
+ *
+ * Aborts (ESP_ERROR_CHECK) if any step fails: without its UARTs the firmware is useless.
+ *
+ * @param port        UART port (UART_NUM_x).
+ * @param baud_rate   Baud rate.
+ * @param tx_pin      TX GPIO.
+ * @param rx_pin      RX GPIO.
+ * @param rx_buf_size RX ring buffer size; must be larger than the 128-byte hardware FIFO.
+ */
 static void init_uart(uart_port_t port, int baud_rate, int tx_pin, int rx_pin, int rx_buf_size)
 {
     const uart_config_t config = {
@@ -44,6 +60,9 @@ static void init_uart(uart_port_t port, int baud_rate, int tx_pin, int rx_pin, i
     ESP_ERROR_CHECK(uart_set_pin(port, tx_pin, rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 }
 
+/**
+ * @brief Brings up the PC link (UART0) and the servo bus (UART2) from board_pins.h.
+ */
 static void init_uarts(void)
 {
     // Also reconnects GPIO1/GPIO3 to UART0: the bootloader detaches them
@@ -141,6 +160,9 @@ static void pc_rx_task(void *arg)
     }
 }
 
+/**
+ * @brief ESP-IDF entry point: initializes the UARTs and starts the PC receive task.
+ */
 void app_main(void)
 {
     init_uarts();

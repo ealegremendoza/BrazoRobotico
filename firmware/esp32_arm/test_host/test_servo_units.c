@@ -25,7 +25,12 @@ static int failures = 0;
         }                                                                 \
     } while (0)
 
-/** Floating-point reference: 2048 + round(mrad * 4096 / 6283), input clamped to +-3142, output to 0..4095. */
+/**
+ * @brief Floating-point reference for mrad_to_counts(): 2048 + round(mrad * 4096 / 6283).
+ *
+ * @param mrad Angle in milliradians; clamped to +-3142.
+ * @return Counts, clamped to 4095.
+ */
 static int32_t ref_mrad_to_counts(int32_t mrad)
 {
     if (mrad > 3142) {
@@ -37,7 +42,12 @@ static int32_t ref_mrad_to_counts(int32_t mrad)
     return counts > 4095 ? 4095 : (int32_t)counts;
 }
 
-/** Floating-point reference: round((counts - 2048) * 6283 / 4096), input clamped to 0..4095. */
+/**
+ * @brief Floating-point reference for counts_to_mrad(): round((counts - 2048) * 6283 / 4096).
+ *
+ * @param counts Servo position; clamped to [0, 4095].
+ * @return Angle in milliradians.
+ */
 static int32_t ref_counts_to_mrad(int32_t counts)
 {
     if (counts > 4095) {
@@ -48,6 +58,7 @@ static int32_t ref_counts_to_mrad(int32_t counts)
     return (int32_t)round((counts - 2048) * 6283.0 / 4096.0);
 }
 
+/** @brief mrad_to_counts() on hand-computed values, including -1571 and the +pi clamp. */
 static void test_mrad_to_counts_known_values(void)
 {
     puts("mrad_to_counts: known values");
@@ -60,6 +71,7 @@ static void test_mrad_to_counts_known_values(void)
     CHECK(mrad_to_counts(3142) == 4095);    // +pi would be 4096: clamped
 }
 
+/** @brief mrad_to_counts() matches the float reference for every mrad in [-3500, 3500]. */
 static void test_mrad_to_counts_vs_reference(void)
 {
     puts("mrad_to_counts: matches float reference for every mrad in [-3500, 3500]");
@@ -72,6 +84,7 @@ static void test_mrad_to_counts_vs_reference(void)
     CHECK(mismatches == 0);
 }
 
+/** @brief Extreme inputs are clamped before multiplying, so they cannot overflow int32_t. */
 static void test_mrad_to_counts_no_overflow(void)
 {
     puts("mrad_to_counts: extreme inputs are clamped before multiplying");
@@ -81,6 +94,7 @@ static void test_mrad_to_counts_no_overflow(void)
     CHECK(mrad_to_counts(INT32_MIN) == 0);
 }
 
+/** @brief counts_to_mrad() on hand-computed values, including both range ends. */
 static void test_counts_to_mrad_known_values(void)
 {
     puts("counts_to_mrad: known values");
@@ -91,6 +105,7 @@ static void test_counts_to_mrad_known_values(void)
     CHECK(counts_to_mrad(4095) == 3140);
 }
 
+/** @brief counts_to_mrad() matches the float reference for every count in [-100, 4200]. */
 static void test_counts_to_mrad_vs_reference(void)
 {
     puts("counts_to_mrad: matches float reference for every count in [-100, 4200]");
@@ -105,6 +120,7 @@ static void test_counts_to_mrad_vs_reference(void)
     CHECK(counts_to_mrad(INT32_MIN) == -3142);
 }
 
+/** @brief counts -> mrad -> counts is exact; mrad -> counts -> mrad errs by at most 1 mrad. */
 static void test_round_trip(void)
 {
     puts("round trip: counts -> mrad -> counts is exact for all 4096 counts");
@@ -128,6 +144,11 @@ static void test_round_trip(void)
     CHECK(counts_to_mrad(mrad_to_counts(3142)) == 3140);
 }
 
+/**
+ * @brief Runs every servo_units test.
+ *
+ * @return 0 if all checks pass, 1 otherwise.
+ */
 int main(void)
 {
     test_mrad_to_counts_known_values();

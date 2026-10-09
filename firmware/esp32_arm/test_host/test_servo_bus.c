@@ -24,6 +24,7 @@ static int failures = 0;
         }                                                                 \
     } while (0)
 
+/** @brief A 2-servo SYNC_WRITE matches the worked example in bitacora-E04 byte for byte. */
 static void test_e04_vector(void)
 {
     puts("2-servo SYNC_WRITE matches the worked example in bitacora-E04 (Ejemplo 2)");
@@ -40,6 +41,7 @@ static void test_e04_vector(void)
     CHECK(memcmp(out, expected, sizeof(expected)) == 0);
 }
 
+/** @brief A 6-servo packet has the right size, Length field, byte order and checksum. */
 static void test_six_servos(void)
 {
     puts("6-servo packet: size, Length field and checksum");
@@ -63,6 +65,7 @@ static void test_six_servos(void)
     CHECK(sum == 0xFF);
 }
 
+/** @brief A buffer one byte too small makes the builder return 0. */
 static void test_buffer_too_small(void)
 {
     puts("buffer one byte too small: returns 0 and writes nothing past it");
@@ -72,6 +75,7 @@ static void test_buffer_too_small(void)
     CHECK(servo_bus_build_sync_write_pos(out, sizeof(out), &t, 1) == sizeof(out));
 }
 
+/** @brief Too many servos for the 1-byte Length field make the builder return 0. */
 static void test_length_overflow(void)
 {
     puts("too many servos for the 1-byte Length field: returns 0");
@@ -82,6 +86,11 @@ static void test_length_overflow(void)
     CHECK(servo_bus_build_sync_write_pos(out, sizeof(out), targets, 32) == 0);
 }
 
+/**
+ * @brief Runs every servo_bus test.
+ *
+ * @return 0 if all checks pass, 1 otherwise.
+ */
 int main(void)
 {
     test_e04_vector();

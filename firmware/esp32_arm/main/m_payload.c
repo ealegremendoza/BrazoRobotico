@@ -1,3 +1,8 @@
+/**
+ * @file m_payload.c
+ * @brief M command payload decoding (see m_payload.h).
+ */
+
 #include "m_payload.h"
 
 #include "frame_parser.h"
@@ -27,6 +32,14 @@ static bool parse_field(const uint8_t *field, int32_t *value)
     return true;
 }
 
+/**
+ * @brief Decodes an M payload into one angle per joint (all or nothing).
+ *
+ * @param payload     Payload bytes (between FS and ETX), not NUL-terminated.
+ * @param payload_len Number of bytes in payload.
+ * @param mrad        Output: M_PAYLOAD_JOINTS angles in milliradians, untouched on failure.
+ * @return true if the payload is valid and mrad was written, false otherwise.
+ */
 bool m_payload_parse(const uint8_t *payload, size_t payload_len, int32_t mrad[M_PAYLOAD_JOINTS])
 {
     if (payload_len != M_PAYLOAD_SIZE) {

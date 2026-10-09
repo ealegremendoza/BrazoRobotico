@@ -1,6 +1,15 @@
 #ifndef BOARD_PINS_H
 #define BOARD_PINS_H
 
+/**
+ * @file board_pins.h
+ * @brief UART ports, pins and baud rates of the board.
+ *
+ * Configurable values come from Kconfig (menu "Robotic Arm Configuration"); fixed
+ * ones are defined here. The console (UART1, GPIO14/27) is configured in
+ * sdkconfig.defaults, not here: ESP-IDF sets it up before app_main.
+ */
+
 #include "driver/uart.h"
 #include "sdkconfig.h"
 

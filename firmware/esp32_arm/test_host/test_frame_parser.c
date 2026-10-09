@@ -39,6 +39,14 @@ static int failures = 0;
         }                                                                 \
     } while (0)
 
+/**
+ * @brief frame_parser handler for the tests: stores every frame in a received_t.
+ *
+ * @param cid         Command id.
+ * @param payload     Payload bytes (copied, they are only valid during the call).
+ * @param payload_len Number of bytes in payload.
+ * @param ctx         The received_t that collects the frames.
+ */
 static void collect(char cid, const uint8_t *payload, size_t payload_len, void *ctx)
 {
     received_t *rx = ctx;
@@ -79,7 +87,12 @@ static size_t make_frame(uint8_t *out, char cid, const uint8_t *payload, size_t 
     return n;
 }
 
-/** M payload for 6 joints: +1571 FS -0785 FS +0000 FS -3142 FS +3142 FS +0001. */
+/**
+ * @brief Writes an M payload for 6 joints: +1571 FS -0785 FS +0000 FS -3142 FS +3142 FS +0001.
+ *
+ * @param out Output buffer (at least 35 bytes).
+ * @return Payload size.
+ */
 static size_t m_payload(uint8_t *out)
 {
     const char *joints[] = {"+1571", "-0785", "+0000", "-3142", "+3142", "+0001"};
@@ -94,12 +107,19 @@ static size_t m_payload(uint8_t *out)
     return n;
 }
 
+/**
+ * @brief Starts a test case with an empty parser and no received frames.
+ *
+ * @param p  Parser to initialize.
+ * @param rx Collected frames, cleared.
+ */
 static void setup(frame_parser_t *p, received_t *rx)
 {
     memset(rx, 0, sizeof(*rx));
     frame_parser_init(p, collect, rx);
 }
 
+/** @brief A 6-joint M frame is 44 bytes, LEN 0039, and is delivered intact. */
 static void test_single_m_frame(void)
 {
     puts("single M frame");
@@ -120,6 +140,7 @@ static void test_single_m_frame(void)
     CHECK(p.len == 0);
 }
 
+/** @brief A frame fed one byte at a time is delivered once, after its last byte. */
 static void test_byte_by_byte(void)
 {
     puts("frame fed one byte at a time");
@@ -136,6 +157,7 @@ static void test_byte_by_byte(void)
     CHECK(rx.count == 1);
 }
 
+/** @brief An incomplete frame stays in the buffer until the rest arrives. */
 static void test_incomplete_kept(void)
 {
     puts("incomplete frame is kept until the rest arrives");
@@ -153,6 +175,7 @@ static void test_incomplete_kept(void)
     CHECK(rx.count == 1 && rx.frames[0].cid == 'D');
 }
 
+/** @brief 50 frames in one chunk (larger than the buffer) are all delivered. */
 static void test_many_frames_one_chunk(void)
 {
     puts("50 frames in a single chunk (larger than the buffer)");
@@ -169,6 +192,7 @@ static void test_many_frames_one_chunk(void)
     CHECK(p.len == 0);
 }
 
+/** @brief Log text and stray control bytes before a frame are skipped. */
 static void test_garbage_before(void)
 {
     puts("garbage and log text before a frame");
@@ -186,6 +210,7 @@ static void test_garbage_before(void)
     CHECK(rx.frames[0].payload_len == 2 && memcmp(rx.frames[0].payload, "07", 2) == 0);
 }
 
+/** @brief Bytes without any STX are discarded, leaving the buffer empty. */
 static void test_no_stx_clears_buffer(void)
 {
     puts("1000 bytes without STX leave the buffer empty");
@@ -198,6 +223,7 @@ static void test_no_stx_clears_buffer(void)
     CHECK(rx.count == 0 && p.len == 0);
 }
 
+/** @brief A frame with a wrong LRC is dropped; the next valid frame is still parsed. */
 static void test_bad_lrc_then_good(void)
 {
     puts("bad LRC is dropped, next frame still parsed");
@@ -214,6 +240,7 @@ static void test_bad_lrc_then_good(void)
     CHECK(memcmp(rx.frames[0].payload, "08", 2) == 0);
 }
 
+/** @brief A frame with a wrong ETX or FS is rejected. */
 static void test_bad_etx_and_fs(void)
 {
     puts("wrong ETX or FS is rejected");
@@ -233,6 +260,7 @@ static void test_bad_etx_and_fs(void)
     CHECK(rx.count == 0);
 }
 
+/** @brief A valid frame starting inside a corrupted one is recovered (drop 1 byte, not the frame). */
 static void test_valid_frame_inside_corrupted_one(void)
 {
     puts("valid frame starting inside a corrupted one is recovered (drop 1 byte, not the frame)");
@@ -253,6 +281,7 @@ static void test_valid_frame_inside_corrupted_one(void)
     CHECK(rx.frames[0].cid == 'D');
 }
 
+/** @brief A corrupted but in-range LEN delays the following frames without losing them. */
 static void test_corrupted_len_waits_for_bytes(void)
 {
     puts("a corrupted LEN delays (does not lose) the frames after it");
@@ -279,6 +308,7 @@ static void test_corrupted_len_waits_for_bytes(void)
     CHECK(memcmp(rx.frames[1].payload, "08", 2) == 0);
 }
 
+/** @brief Non-digit and out-of-range LEN values are rejected; LEN 4 and 128 are accepted. */
 static void test_len_validation(void)
 {
     puts("LEN: non-digits, below min and above max are rejected; limits accepted");
@@ -312,6 +342,7 @@ static void test_len_validation(void)
     CHECK(rx.count == 1 && rx.frames[0].payload_len == FRAME_MAX_LEN - FRAME_MIN_LEN);
 }
 
+/** @brief Two frames split at every possible point are both delivered, in order. */
 static void test_split_at_every_point(void)
 {
     puts("two frames split at every possible point");
@@ -331,6 +362,11 @@ static void test_split_at_every_point(void)
     }
 }
 
+/**
+ * @brief Runs every frame_parser test.
+ *
+ * @return 0 if all checks pass, 1 otherwise.
+ */
 int main(void)
 {
     test_single_m_frame();

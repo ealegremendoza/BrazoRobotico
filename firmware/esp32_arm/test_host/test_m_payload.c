@@ -41,7 +41,11 @@ static size_t payload_from(uint8_t *out, const char *s)
     return n;
 }
 
-/** Sentinel values: must survive any rejected payload. */
+/**
+ * @brief Fills the output with sentinel values that must survive any rejected payload.
+ *
+ * @param mrad Output array to fill.
+ */
 static void fill_sentinel(int32_t mrad[M_PAYLOAD_JOINTS])
 {
     for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
@@ -49,6 +53,12 @@ static void fill_sentinel(int32_t mrad[M_PAYLOAD_JOINTS])
     }
 }
 
+/**
+ * @brief Checks that a rejected payload left the output untouched.
+ *
+ * @param mrad Output array previously filled with fill_sentinel().
+ * @return 1 if every value is still the sentinel, 0 otherwise.
+ */
 static int is_sentinel(const int32_t mrad[M_PAYLOAD_JOINTS])
 {
     for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
@@ -59,6 +69,7 @@ static int is_sentinel(const int32_t mrad[M_PAYLOAD_JOINTS])
     return 1;
 }
 
+/** @brief A valid payload decodes signs, zero padding and the +-3142 extremes. */
 static void test_valid_payload(void)
 {
     puts("valid payload: signs, zero padding, extremes");
@@ -76,6 +87,7 @@ static void test_valid_payload(void)
     CHECK(mrad[5] == -1);
 }
 
+/** @brief Well-formed out-of-range values are accepted: the range is mrad_to_counts()'s job. */
 static void test_out_of_range_is_format_valid(void)
 {
     puts("out-of-range but well-formed values are accepted (range is mrad_to_counts' job)");
@@ -86,6 +98,12 @@ static void test_out_of_range_is_format_valid(void)
     CHECK(mrad[0] == 9999 && mrad[1] == -9999 && mrad[2] == 0);
 }
 
+/**
+ * @brief Checks that a malformed payload returns false and leaves the output untouched.
+ *
+ * @param name Case name, printed on failure.
+ * @param text Payload text, '|' stands for FS.
+ */
 static void test_rejected(const char *name, const char *text)
 {
     uint8_t p[64];
@@ -99,6 +117,7 @@ static void test_rejected(const char *name, const char *text)
     }
 }
 
+/** @brief Every malformed payload variant is rejected. */
 static void test_malformed_payloads(void)
 {
     puts("malformed payloads are rejected and leave the output untouched");
@@ -114,6 +133,11 @@ static void test_malformed_payloads(void)
     test_rejected("trailing FS", "+1571|-0785|+0000|-3142|+3142|+001|");
 }
 
+/**
+ * @brief Runs every m_payload test.
+ *
+ * @return 0 if all checks pass, 1 otherwise.
+ */
 int main(void)
 {
     test_valid_payload();
