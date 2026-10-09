@@ -33,4 +33,22 @@ menu "Robotic Arm Configuration"
             GPIO wired to the servo driver's TX line. Avoid strapping pins
             (0, 2, 5, 12, 15) and flash pins (6-11).
 
+    config ARM_SERVO_MOVE_SPEED
+        int "Servo max speed (steps/s)"
+        range 1 3400
+        default 300
+        help
+            Max speed sent with every goal position (4096 steps = 1 turn; 300 ~= 26 deg/s).
+            Caps how fast each servo can follow the targets from the PC: too low and the
+            arm lags MoveIt trajectories. 3400 ~= 50 RPM is the STS3215 no-load max.
+            Default matches STServo_Python/servo_control_ui.py (slow and safe for bring-up).
+
+    config ARM_SERVO_MOVE_ACC
+        int "Servo acceleration (x100 steps/s^2)"
+        range 1 254
+        default 10
+        help
+            Acceleration sent with every goal position, in units of 100 steps/s^2
+            (10 = 1000 steps/s^2 ~= 88 deg/s^2). Default matches servo_control_ui.py.
+
 endmenu

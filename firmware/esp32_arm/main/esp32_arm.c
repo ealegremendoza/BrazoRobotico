@@ -10,6 +10,7 @@
 #include "board_pins.h"
 #include "frame_parser.h"
 #include "m_payload.h"
+#include "servo_bus.h"
 #include "servo_units.h"
 
 // RX ring buffers must be larger than the 128-byte hardware FIFO.
@@ -58,7 +59,7 @@ static void init_uarts(void)
 }
 
 /**
- * @brief Handles an M frame: decodes the joint angles and converts them to servo counts.
+ * @brief Handles an M frame: decodes the joint angles and moves the servos with one SYNC_WRITE.
  *
  * @param payload     Payload bytes (between FS and ETX).
  * @param payload_len Number of bytes in payload.
@@ -71,16 +72,28 @@ static void handle_m_frame(const uint8_t *payload, size_t payload_len)
         return;
     }
 
-    int32_t counts[M_PAYLOAD_JOINTS];
+    // Joint j of the M payload drives servo ID j + 1 (shoulder_pan = 1 .. gripper = 6),
+    // same order as the joints in robotic_arm_ros2_control.xacro.
+    servo_target_t targets[M_PAYLOAD_JOINTS];
     for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
-        counts[j] = mrad_to_counts(mrad[j]);
+        targets[j] = (servo_target_t){
+            .id = (uint8_t)(j + 1),
+            .position = (uint16_t)mrad_to_counts(mrad[j]),  // always 0..4095
+            .speed = CONFIG_ARM_SERVO_MOVE_SPEED,
+            .acc = CONFIG_ARM_SERVO_MOVE_ACC,
+        };
     }
 
-    // TODO(E06): SYNC_WRITE counts to the servos and reply with an M feedback frame.
-    ESP_LOGI(TAG, "M: mrad [%ld %ld %ld %ld %ld %ld] -> counts [%ld %ld %ld %ld %ld %ld]",
+    uint8_t packet[SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS)];
+    size_t packet_size = servo_bus_build_sync_write_pos(packet, sizeof(packet), targets,
+                                                        M_PAYLOAD_JOINTS);
+    uart_write_bytes(SERVOS_UART_PORT, packet, packet_size);
+
+    // TODO(E06): read the present positions and reply with an M feedback frame.
+    ESP_LOGI(TAG, "M: mrad [%ld %ld %ld %ld %ld %ld] -> counts [%u %u %u %u %u %u]",
              (long)mrad[0], (long)mrad[1], (long)mrad[2], (long)mrad[3], (long)mrad[4],
-             (long)mrad[5], (long)counts[0], (long)counts[1], (long)counts[2], (long)counts[3],
-             (long)counts[4], (long)counts[5]);
+             (long)mrad[5], targets[0].position, targets[1].position, targets[2].position,
+             targets[3].position, targets[4].position, targets[5].position);
 }
 
 /**
