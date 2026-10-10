@@ -103,6 +103,21 @@ Jumper en A, driver alimentado, ESP32 en `/dev/ttyUSB0`.
 
 **`update_rate` en 10 Hz:** el log mostró `update rate is 10 Hz` (`robotic_arm_controllers.yaml`, heredado del curso). Todo el diseño asume 50 Hz (`[R09]`: una `M` por ciclo). Se subió a 50: el firmware lo aguantó en las pruebas de convergencia (250/250 a 50 Hz con logs de consola) y el ancho de banda sobra (~2.2 kB/s por sentido, < 20% de 115200). Si el ESP32 se atrasa con dos líneas de log por ciclo, pasar esos logs a `DEBUG`.
 
+## Paso 5 — Primer movimiento con MoveIt (`real_robot.launch.py`)
+
+`ros2 launch robotic_arm_bringup real_robot.launch.py port:=/dev/ttyUSB0` con el brazo en una pose dentro de los límites (`send_m.py ... 0 -1500 1400 -1500 0 0`). Levanta `ros2_control` (plugin), MoveIt (`move_group`), RViz y el `task_server` (queda esperando goals).
+
+- **Velocidad:** el firmware limita los servos a 300 pasos/s ≈ 0.46 rad/s (`ARM_SERVO_MOVE_SPEED`); MoveIt planifica con ~4.7 rad/s de `joint_limits.yaml` × el velocity scaling de RViz. Si planifica más rápido de lo que el servo sigue, el brazo se atrasa y la ejecución puede fallar por tolerancia. Primera prueba con velocity/acceleration scaling **0.05** (0.1 ≈ el límite de los servos).
+- **Prueba:** grupo `arm`, start state `<current>`, objetivo arrastrando el marcador interactivo (IK de posición, `kdl_kinematics_plugin`), Plan → Execute.
+
+Del log de `move_group`:
+
+- plan con OMPL (`RRTConnect`) en 0.024 s, `Motion plan was computed successfully`;
+- `Validating trajectory with allowed_start_tolerance 0.01` pasó: **el estado inicial de MoveIt coincidía con el brazo real a menos de 0.01 rad** (calibración + feedback + arranque seguro cerrando);
+- `arm_controller: Goal reached, success!` y `Completed trajectory execution with status SUCCEEDED` (~5 s de ejecución).
+
+**Primer movimiento del brazo real comandado por MoveIt:** RViz → `move_group` → `arm_controller` → plugin (`M` por USB) → ESP32 (`SYNC_WRITE`) → servos, y el feedback (`SYNC_READ` → `M` → `read()` → `/joint_states`) de vuelta hasta RViz. Junta todo lo de `[E06]`, `[R09]` y este `[R08]`.
+
 ## Pendientes
 
 - [x] Comparar cero y sentido de cada joint: URDF (RViz) vs brazo real
@@ -115,5 +130,5 @@ Jumper en A, driver alimentado, ESP32 en `/dev/ttyUSB0`.
 - [x] Arranque seguro (sin movimiento al activar `ros2_control`) — ver "Paso 4"
 - [x] Probar el arranque seguro con el brazo (ver "Pruebas del arranque seguro")
 - [x] `update_rate` de `controller_manager` de 10 a 50 Hz (`robotic_arm_controllers.yaml`)
-- [ ] `real_robot.launch.py`: plan & execute desde RViz
+- [x] `real_robot.launch.py`: plan & execute desde RViz (ver "Paso 5")
 - [ ] `task_server` sobre el brazo real
