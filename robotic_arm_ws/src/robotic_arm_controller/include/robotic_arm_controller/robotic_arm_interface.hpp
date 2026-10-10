@@ -34,12 +34,21 @@ public:
   virtual hardware_interface::return_type write(const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
+  // Builds STX | LEN | CID | FS | payload | ETX | LRC (doc/md/bitacora-R09-ros2-control.md)
+  static std::string buildFrame(char cid, const std::string &payload);
+  // "M" payload: joint targets in mrad, fixed-width signed, separated by FS
+  std::string buildMPayload(const std::vector<double> &positions_rad) const;
+  // Waits for the first "M" feedback so states and commands start at the real pose
+  bool syncWithArm();
+
   LibSerial::SerialPort serial_port_;
   std::string port_;
   std::vector<double> position_commands_;
   std::vector<double> position_states_;
   // Bytes received from the ESP32 that do not form a complete frame yet
   std::string rx_buffer_;
+  // Set by read() when a valid "M" feedback updated position_states_
+  bool m_received_ = false;
 };
 }  // namespace robotic_arm_controller
 

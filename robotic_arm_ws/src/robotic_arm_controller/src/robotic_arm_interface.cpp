@@ -4,8 +4,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <thread>
 
 
 namespace robotic_arm_controller
@@ -29,6 +31,12 @@ constexpr size_t kMaxLen = 128;  // parser sanity cap, a full LCD "D" frame (4 x
 constexpr size_t kJointFieldLen = 5;
 // Safety net only: read() asks for bytes already available, so it never waits
 constexpr size_t kReadTimeoutMs = 1;
+// Startup sync (see syncWithArm()). Opening the port resets the ESP32 (~300 ms until
+// it runs); waiting longer than its 500 ms link watchdog also guarantees it is STOPPED
+// when the port open does not reset it.
+constexpr auto kBootWait = std::chrono::milliseconds(700);
+constexpr auto kSyncTimeout = std::chrono::milliseconds(2000);
+constexpr auto kSyncPollPeriod = std::chrono::milliseconds(20);  // like the 50 Hz loop
 
 // Parses an "M" payload (j1 FS j2 FS ... FS jn, mrad) into radians.
 // All or nothing: on any malformed field, positions is left untouched.
@@ -181,9 +189,83 @@ CallbackReturn RoboticArmInterface::on_activate(const rclcpp_lifecycle::State &p
     return CallbackReturn::FAILURE;
   }
 
+  // Never start from the zeros above: the controllers would hold them and the arm
+  // would drive to the zero pose on its own. Start from the real pose instead.
+  if (!syncWithArm())
+  {
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                        "No M feedback from the ESP32 on " << port_
+                            << " (servos powered? driver jumper on A? right port?)");
+    serial_port_.Close();
+    return CallbackReturn::FAILURE;
+  }
+
   RCLCPP_INFO(rclcpp::get_logger("RoboticArmInterface"),
               "Hardware started, ready to take commands");
   return CallbackReturn::SUCCESS;
+}
+
+/* Startup sync with the ESP32 (minimal version of the R03 start sequence).
+ * The ESP32 boots STOPPED: "M" frames only read the servos and answer the feedback,
+ * they never move them. So: wait for its boot, send "M" until the first feedback
+ * arrives, start states AND commands from that real pose (the controllers then hold
+ * it, nothing moves) and finally send "S" (start) so later "M" frames move the arm.
+ */
+bool RoboticArmInterface::syncWithArm()
+{
+  std::this_thread::sleep_for(kBootWait);
+  try
+  {
+    serial_port_.FlushInputBuffer();  // ROM boot messages printed on UART0
+  }
+  catch (...)
+  {
+    return false;
+  }
+  rx_buffer_.clear();
+  m_received_ = false;
+
+  // The ESP32 is STOPPED: the targets in these frames are ignored, only the reply matters
+  const std::string probe = buildFrame('M', buildMPayload(position_commands_));
+  const auto deadline = std::chrono::steady_clock::now() + kSyncTimeout;
+  while (!m_received_ && std::chrono::steady_clock::now() < deadline)
+  {
+    try
+    {
+      serial_port_.Write(probe);
+    }
+    catch (...)
+    {
+      return false;
+    }
+    std::this_thread::sleep_for(kSyncPollPeriod);
+    if (read(rclcpp::Time(), rclcpp::Duration(0, 0)) != hardware_interface::return_type::OK)
+    {
+      return false;
+    }
+  }
+  if (!m_received_)
+  {
+    return false;
+  }
+
+  position_commands_ = position_states_;
+  std::string pose;
+  for (const double rad : position_states_)
+  {
+    pose += " " + std::to_string(rad);
+  }
+  RCLCPP_INFO_STREAM(rclcpp::get_logger("RoboticArmInterface"), "Arm pose at startup (rad):" << pose);
+
+  try
+  {
+    serial_port_.Write(buildFrame('S', ""));
+  }
+  catch (...)
+  {
+    return false;
+  }
+  return true;
 }
 
 
@@ -312,7 +394,11 @@ hardware_interface::return_type RoboticArmInterface::read(const rclcpp::Time &ti
     {
       case 'M':
         // If several "M" arrived, the last one wins
-        if (!parseJointPositions(payload, position_states_))
+        if (parseJointPositions(payload, position_states_))
+        {
+          m_received_ = true;
+        }
+        else
         {
           RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
                              "Malformed M payload, dropped: " << payload);
@@ -331,35 +417,11 @@ hardware_interface::return_type RoboticArmInterface::read(const rclcpp::Time &ti
   return hardware_interface::return_type::OK;
 }
 
-hardware_interface::return_type RoboticArmInterface::write(const rclcpp::Time &time,
-                                                           const rclcpp::Duration &period)
+std::string RoboticArmInterface::buildFrame(char cid, const std::string &payload)
 {
-  // Payload of "M": joint targets in mrad, fixed-width signed, separated by FS.
-  // Offsets and servo calibration are handled by the ESP32.
-  std::string payload;
-  for (size_t i = 0; i < position_commands_.size(); i++)
-  {
-    const long mrad = std::lround(position_commands_.at(i) * 1000.0);
-    const long clamped = std::clamp(mrad, -kMaxJointMrad, kMaxJointMrad);
-    if (clamped != mrad)
-    {
-      RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
-                         "Joint " << i << " command " << mrad << " mrad out of range, clamped to "
-                                  << clamped);
-    }
-
-    char field[6];  // 5 chars + '\0'
-    std::snprintf(field, sizeof(field), "%+05ld", clamped);
-    if (i > 0)
-    {
-      payload += kFieldSeparator;
-    }
-    payload += field;
-  }
-
   // Frame: STX | LEN | CID | FS | payload | ETX | LRC
   std::string body;
-  body += 'M';
+  body += cid;
   body += kFieldSeparator;
   body += payload;
 
@@ -380,6 +442,41 @@ hardware_interface::return_type RoboticArmInterface::write(const rclcpp::Time &t
     lrc ^= msg[i];
   }
   msg += lrc;
+  return msg;
+}
+
+std::string RoboticArmInterface::buildMPayload(const std::vector<double> &positions_rad) const
+{
+  // Payload of "M": joint targets in mrad, fixed-width signed, separated by FS.
+  // Offsets and servo calibration are handled by the ESP32.
+  std::string payload;
+  for (size_t i = 0; i < positions_rad.size(); i++)
+  {
+    const long mrad = std::lround(positions_rad.at(i) * 1000.0);
+    const long clamped = std::clamp(mrad, -kMaxJointMrad, kMaxJointMrad);
+    if (clamped != mrad)
+    {
+      RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                         "Joint " << i << " command " << mrad << " mrad out of range, clamped to "
+                                  << clamped);
+    }
+
+    char field[6];  // 5 chars + '\0'
+    std::snprintf(field, sizeof(field), "%+05ld", clamped);
+    if (i > 0)
+    {
+      payload += kFieldSeparator;
+    }
+    payload += field;
+  }
+  return payload;
+}
+
+hardware_interface::return_type RoboticArmInterface::write(const rclcpp::Time &time,
+                                                           const rclcpp::Duration &period)
+{
+  const std::string payload = buildMPayload(position_commands_);
+  const std::string msg = buildFrame('M', payload);
 
   try
   {
