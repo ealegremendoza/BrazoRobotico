@@ -1,6 +1,6 @@
 controller_manager:
   ros__parameters:
-    update_rate: 10 # Hz
+    update_rate: 50 # Hz: one M frame per cycle to the ESP32 (R09 design, doc/md/bitacora-R09-ros2-control.md)
 
     arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
