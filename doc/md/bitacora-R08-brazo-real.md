@@ -87,6 +87,22 @@ Calibración final (`STServo_Python/calibration.json`), rangos en rad respecto d
 - **Plugin** — `on_activate()` → `syncWithArm()`: abre el puerto, espera 700 ms (arranque del ESP32 y más que el watchdog), descarta lo recibido (ROM), manda `M` cada 20 ms hasta el primer feedback (máx. 2 s; si no llega → `FAILURE` con la sugerencia de qué revisar y el hardware no se activa), inicializa estados **y** comandos con la pose real (la loguea) y manda `S`. Armado de tramas separado en `buildFrame()` / `buildMPayload()`.
 - **`tools/send_m.py`**: manda `S` antes de las `M`; `--read-only` no la manda (solo lee posiciones).
 
+### Pruebas del arranque seguro
+
+Jumper en A, driver alimentado, ESP32 en `/dev/ttyUSB0`.
+
+1. **Firmware sin `S`** (`send_m.py --read-only ... 0 0 0 0 0 0`): pidiéndole el cero, el brazo **no se movió**; las respuestas mostraron su pose real (reposo plegado: `+0002 -1799 +1634 -1767 -0005 -0199` mrad).
+2. **Firmware con `S`** (`send_m.py ... 0 -1500 1400 -1500 0 0`): fue a la pose pedida con error ≤ 0.7° (`+0003 -1506 +1413 -1502 -0005 -0003`), 150/150 respuestas.
+3. **`ros2_control` solo** (`ros2 launch robotic_arm_controller controller.launch.py is_sim:=False port:=/dev/ttyUSB0`):
+   - `Arm pose at startup (rad): 0.002 -1.508 1.417 -1.502 -0.003 -0.003` ~0.72 s después de `Starting robot hardware` (700 ms de espera + primer feedback);
+   - los 3 controllers cargados y activos sin errores;
+   - `/joint_states` coincide joint por joint (viene en orden alfabético; los valores corresponden por nombre);
+   - **el brazo no se movió**: quedó rígido en su pose.
+
+**Pose de reposo fuera de los límites del URDF:** plegado contra los topes, el brazo queda con `shoulder_lift` −1.799, `elbow_flex` +1.634, `wrist_flex` −1.767 y `gripper` −0.199, todos un poco afuera de los límites (que están 0.05 rad antes de los topes a propósito). `ros2_control` arranca igual, pero **MoveIt rechazaría planificar** (estado inicial fuera de límites). Antes de lanzar MoveIt, llevar el brazo a una pose dentro de los límites (p. ej. `send_m.py ... 0 -1500 1400 -1500 0 0`). Más adelante, el `arm_supervisor` de `[R03]` debería ir a un "home" válido al arrancar (`[E09]`).
+
+**`update_rate` en 10 Hz:** el log mostró `update rate is 10 Hz` (`robotic_arm_controllers.yaml`, heredado del curso). Todo el diseño asume 50 Hz (`[R09]`: una `M` por ciclo). Se subió a 50: el firmware lo aguantó en las pruebas de convergencia (250/250 a 50 Hz con logs de consola) y el ancho de banda sobra (~2.2 kB/s por sentido, < 20% de 115200). Si el ESP32 se atrasa con dos líneas de log por ciclo, pasar esos logs a `DEBUG`.
+
 ## Pendientes
 
 - [x] Comparar cero y sentido de cada joint: URDF (RViz) vs brazo real
@@ -97,6 +113,7 @@ Calibración final (`STServo_Python/calibration.json`), rangos en rad respecto d
 - [x] `[R13]`: puerto serie configurable con argumento del launch `port` (default `/dev/ttyUSB0`, la DevKitC WROOM): `real_robot.launch.py port:=...` → `controller.launch.py` → `xacro ... port:=...` → `<param name="port">` → plugin (el C++ ya lo leía de `hardware_parameters`). Verificado: `xacro` con y sin `port:=`, y `--show-args` en los dos launch. La regla udev (`/dev/robotic_arm`, por número de serie USB: el CP2102 del adaptador a comprar tiene el mismo VID:PID que la WROOM) queda para la computadora integrada
 - [ ] `robotic_arm_ros2_control.xacro` repite los límites de cada joint (`<param name="min">`/`max`) con los valores viejos (p. ej. `elbow_flex` ±1.69): alinearlos con el URDF
 - [x] Arranque seguro (sin movimiento al activar `ros2_control`) — ver "Paso 4"
-- [ ] Probar el arranque seguro con el brazo
+- [x] Probar el arranque seguro con el brazo (ver "Pruebas del arranque seguro")
+- [x] `update_rate` de `controller_manager` de 10 a 50 Hz (`robotic_arm_controllers.yaml`)
 - [ ] `real_robot.launch.py`: plan & execute desde RViz
 - [ ] `task_server` sobre el brazo real
