@@ -518,6 +518,44 @@ Montaje: DevKitC WROOM en la placa base, `P17` → `TX` del driver, `P16` → `R
 - **Por qué el feedback no da 0 si se mandó la pose cero:** se lee ~1 ms después del `SYNC_WRITE`, cuando los servos recién arrancan a 26°/s: refleja dónde estaba el brazo antes de moverse. Para ver la convergencia: `./tools/send_m.py --port /dev/ttyUSB0 --count 250 0 0 0 0 0 0` (5 s a 50 Hz).
 - **Warning en la WROOM:** `spi_flash: boya detected but related driver is not linked` — su flash es Boya (fabricante `0x68` en `esptool`). ESP-IDF trae `SPI_FLASH_SUPPORT_BOYA_CHIP` desactivado en el ESP32 "para ahorrar IRAM" y usa el driver genérico, que funciona. Se silencia con `CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y` en `sdkconfig.defaults`.
 
+### Prueba de convergencia (`--count 250`)
+
+Misma `M` 250 veces a 50 Hz (5 s, como `ros2_control`) para ver que el feedback acompaña el movimiento.
+
+**Primera corrida** (`0 0 0 0 0 0`): `got 215 reply frame(s)`.
+
+- Joints 1, 2, 3, 4 y 6 **convergen**: bajan ~9 mrad por respuesta (300 pasos/s × 20 ms = 6 cuentas ≈ 9.2 mrad) y terminan en `-3 +5 +18 +8 · -3` (±1° del cero; el +18 del codo, probablemente el peso del brazo).
+- **35 respuestas faltantes**, de a ~4 seguidas cada ~0.5 s. La consola: `SYNC_READ: not every servo answered (0 bytes received)`.
+- **`wrist_roll` (servo 5) trabado** en ~906 cuentas y `Servo status error flags: 0x20` a los ~2.6 s.
+
+**Bug del timeout del `SYNC_READ` (corregido):**
+
+- `uart_read_bytes(..., pdMS_TO_TICKS(10))` con `CONFIG_FREERTOS_HZ=100` es **1 tick**, y un timeout de 1 tick termina en la próxima interrupción del tick: **entre 0 y 10 ms**. Las respuestas tardan ~1–1.5 ms: si el tick caía antes, volvía con 0 bytes y el código abandonaba. ~1.5 ms / 10 ms ≈ 14% = 35/250. Los grupos salen del desfase entre el período de la PC (20 ms) y el tick.
+- **Arreglo** (`read_servo_positions()`): cada espera suma un tick (`pdMS_TO_TICKS(restante redondeado) + 1`), así dura al menos lo que falta; el plazo se mide con `esp_timer` y una espera sin datos no abandona, vuelve a chequear el plazo. Costo: si los servos realmente no responden, la espera llega a ~20 ms (un ciclo). Alternativa de fondo: tick a 1000 Hz.
+
+**`wrist_roll` contra el tope (protección de sobrecarga):**
+
+- `0x20` = bit 5 del registro 65 ("Overload", mapa de registros del ST3215). La protección se dispara con carga > 80% del torque durante 2 s (registros 36 y 35) y baja el torque al 20% (registro 34): el servo 5 se trabó en ~908 a los ~1.1 s y el flag apareció ~2 s después.
+- Lo frena un **tope de la pieza del antebrazo**: el cero calibrado (2048) cae detrás del tope (faltan ~1140 cuentas, ~100°).
+- Además el `wrist_roll` **no tiene límites en la EEPROM**: `calibrate-arm.py` lo trata como giro continuo y fuerza `[0, 4095]` sin medirlo (no se usó `--record-wrist-roll`). Los demás servos recortan solos objetivos fuera de rango; el 5 va contra el tope.
+
+**Segunda corrida, con el arreglo** (`0 0 0 0 -1750 0`: al `wrist_roll` se le manda su posición actual para no forzarlo): **`got 250 reply frame(s)`**, sin saltos; los otros 5 joints terminan en `-3 +5 +17 -2 · -2`, prácticamente igual que la primera vez (repetible).
+
+**`wrist_roll` por el camino largo y salto de ±π:**
+
+- Arrancó en +1336 mrad (2919 cuentas; se había movido a mano al revisar el tope) con objetivo −1750 (907). En vez de bajar, **subió**: pasó por +3131, saltó a −3142 y siguió hacia −1750 (más de media vuelta).
+- **Causa, el offset de calibración:** el servo reporta `(encoder − OFS) mod 4096` con OFS = 1182 (`homing_offset` en `calibration.json`), pero se mueve en coordenadas del **encoder**, que no cruzan su propio 0/4095:
+
+  | | Reportado (cuentas) | Encoder (+1182 mod 4096) |
+  |---|---|---|
+  | Inicio | 2919 | 5 |
+  | Objetivo | 907 | 2089 |
+
+  En el encoder es subir en línea recta de 5 a 2089; el salto de +π a −π existe solo en nuestras coordenadas, porque el OFS corre el corte.
+- **Para ROS:** el feedback del `wrist_roll` mostraría saltos de 2π en medio de un movimiento normal; `ros2_control`/MoveIt lo verían como una vuelta entera de golpe (puede abortar trayectorias).
+- **Para el hardware:** el tope está cerca de 907 cuentas (encoder ~2090); con el OFS actual el rango físico cruza el corte y el servo puede elegir el lado del tope.
+- **Solución (`[R08]`):** recalibrar el `wrist_roll` con `--record-wrist-roll` de modo que **todo su rango físico quede dentro de 0..4095 sin cruzar el corte**, con el cero cerca del centro y alineado con el cero del URDF. Así desaparecen el salto y el camino largo, y la EEPROM lo frena antes del tope. Hasta entonces, no mandarle objetivos lejos de donde está.
+
 ## Tests en la PC (`test_host/`)
 
 Funciones puras (sin hardware): se compilan con `gcc`, sin ESP-IDF. Desde `firmware/esp32_arm`:
@@ -567,5 +605,6 @@ gcc -Wall -Wextra -Werror -fsanitize=address,undefined -I main \
 - [x] Probar el `SYNC_WRITE` con el brazo (ver "Resultados de la prueba con el brazo")
 - [x] Leer las posiciones reales (`SYNC_READ`) y responder con una `M` de feedback, con tests en la PC
 - [x] Probar la `M` de feedback con el brazo: vuelta completa verificada en las tres vistas (bus, consola, PC)
-- [ ] Ver la convergencia del feedback con `--count 250` hacia la pose cero
+- [x] Ver la convergencia del feedback con `--count 250`: 5 joints convergen (±1°), 250/250 respuestas tras corregir el timeout del `SYNC_READ`
+- [ ] Recalibrar el `wrist_roll` (`[R08]`): rango físico dentro de 0..4095 sin cruzar el corte, cero centrado y alineado con el URDF, límites en la EEPROM
 - [ ] Comprar adaptador USB-serie TTL 3.3V
