@@ -15,7 +15,14 @@ def generate_launch_description():
         default_value="True"
     )
 
+    port_arg = DeclareLaunchArgument(
+        "port",
+        default_value="/dev/ttyUSB0",
+        description="Serial port of the ESP32 (real robot only)",
+    )
+
     is_sim = LaunchConfiguration("is_sim")
+    port = LaunchConfiguration("port")
 
     robot_description = ParameterValue(
         Command(
@@ -26,7 +33,9 @@ def generate_launch_description():
                     "urdf",
                     "robotic_arm.urdf.xacro",
                 ),
-                " is_sim:=False"
+                " is_sim:=False",
+                " port:=",
+                port,
             ]
         ),
         value_type=str,
@@ -79,6 +88,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             is_sim_arg,
+            port_arg,
             robot_state_publisher_node,
             controller_manager,
             joint_state_broadcaster_spawner,

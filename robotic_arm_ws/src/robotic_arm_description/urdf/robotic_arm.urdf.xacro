@@ -8,6 +8,10 @@
     <!-- Load Simulated or Real Hardware Interfaces -->
     <xacro:arg name="is_sim" default="true"/>
 
+    <!-- Serial port of the ESP32 (real robot only). Depends on its USB chip:
+         DevKitC WROOM (CP2102) -> /dev/ttyUSB0, 30-pin board (CH9102X) -> /dev/ttyACM0 -->
+    <xacro:arg name="port" default="/dev/ttyUSB0"/>
+
     <!-- Include Gazebo Parameters -->
     <xacro:include filename="$(find robotic_arm_description)/urdf/robotic_arm_gazebo.xacro" />
 

@@ -24,7 +24,7 @@
         <xacro:unless value="$(arg is_sim)">
             <hardware>
                 <plugin>robotic_arm_controller/RoboticArmInterface</plugin>
-                <param name="port">/dev/ttyACM0</param>
+                <param name="port">$(arg port)</param>
             </hardware>
         </xacro:unless>
 
