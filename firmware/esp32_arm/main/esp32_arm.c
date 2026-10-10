@@ -13,6 +13,7 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
+#include "arm_state.h"
 #include "board_pins.h"
 #include "frame_parser.h"
 #include "m_payload.h"
@@ -37,6 +38,14 @@
 #define SERVO_RX_BUF_SIZE                                        \
     (SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS) +           \
      SERVO_BUS_SYNC_READ_SIZE(M_PAYLOAD_JOINTS) + M_PAYLOAD_JOINTS * SERVO_BUS_POS_STATUS_SIZE)
+
+// Link watchdog: with no valid frame from the PC for this long, go back to STOPPED.
+// The ros2_control plugin waits longer than this after opening the port, so it
+// always starts against a STOPPED ESP32 even when opening the port does not reset it.
+#define PC_LINK_TIMEOUT_MS 500
+
+/** STOPPED / OPERATING + link watchdog (see arm_state.h). Owned by pc_rx_task. */
+static arm_state_t s_arm;
 
 /** Servo bus IDs in M payload order: joint j drives servo j + 1 (shoulder_pan = 1 .. gripper = 6). */
 static const uint8_t SERVO_IDS[M_PAYLOAD_JOINTS] = {1, 2, 3, 4, 5, 6};
@@ -174,8 +183,8 @@ static void send_m_feedback(const int32_t counts[M_PAYLOAD_JOINTS])
 }
 
 /**
- * @brief Handles an M frame: moves the servos (SYNC_WRITE), reads where they are
- *        (SYNC_READ) and answers the PC with an M feedback frame.
+ * @brief Handles an M frame: moves the servos (SYNC_WRITE, only when OPERATING),
+ *        reads where they are (SYNC_READ) and answers the PC with an M feedback frame.
  *
  * @param payload     Payload bytes (between FS and ETX).
  * @param payload_len Number of bytes in payload.
@@ -199,16 +208,19 @@ static void handle_m_frame(const uint8_t *payload, size_t payload_len)
         };
     }
 
-    uint8_t packet[SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS)];
-    size_t packet_size = servo_bus_build_sync_write_pos(packet, sizeof(packet), targets,
-                                                        M_PAYLOAD_JOINTS);
     uart_flush_input(SERVOS_UART_PORT);  // drop stale bytes: only this cycle's answers count
-    uart_write_bytes(SERVOS_UART_PORT, packet, packet_size);
+    if (arm_state_can_move(&s_arm)) {
+        uint8_t packet[SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS)];
+        size_t packet_size = servo_bus_build_sync_write_pos(packet, sizeof(packet), targets,
+                                                            M_PAYLOAD_JOINTS);
+        uart_write_bytes(SERVOS_UART_PORT, packet, packet_size);
+    }
 
-    ESP_LOGI(TAG, "M: mrad [%ld %ld %ld %ld %ld %ld] -> counts [%u %u %u %u %u %u]",
-             (long)mrad[0], (long)mrad[1], (long)mrad[2], (long)mrad[3], (long)mrad[4],
-             (long)mrad[5], targets[0].position, targets[1].position, targets[2].position,
-             targets[3].position, targets[4].position, targets[5].position);
+    ESP_LOGI(TAG, "M (%s): mrad [%ld %ld %ld %ld %ld %ld] -> counts [%u %u %u %u %u %u]",
+             arm_state_can_move(&s_arm) ? "move" : "stopped, read only", (long)mrad[0],
+             (long)mrad[1], (long)mrad[2], (long)mrad[3], (long)mrad[4], (long)mrad[5],
+             targets[0].position, targets[1].position, targets[2].position, targets[3].position,
+             targets[4].position, targets[5].position);
 
     // Request/response (R09): one M feedback per M command. No answer if the
     // servos did not reply; the PC detects the missing frame.
@@ -230,12 +242,24 @@ static void on_pc_frame(char cid, const uint8_t *payload, size_t payload_len, vo
 {
     (void)ctx;
 
+    // Link watchdog: a long silence means the PC went away (plugin stopped, cable
+    // unplugged). Never resume moving on stale targets: require a new S.
+    if (arm_state_on_frame(&s_arm, esp_timer_get_time())) {
+        ESP_LOGW(TAG, "No frame from the PC for > %d ms: STOPPED (waiting for S)", PC_LINK_TIMEOUT_MS);
+    }
+
     switch (cid) {
     case 'M':
         handle_m_frame(payload, payload_len);
         break;
+    case 'S':
+        // Start (R03). TODO(E09): answer with E "initialized" and handle the rest of the states.
+        if (arm_state_start(&s_arm)) {
+            ESP_LOGI(TAG, "S: OPERATING, M frames now move the servos");
+        }
+        break;
     default:
-        // D, S and the rest arrive with E09.
+        // D and the rest arrive with E09.
         ESP_LOGW(TAG, "Unhandled CID '%c' (%u payload bytes)", cid, (unsigned)payload_len);
         break;
     }
@@ -258,6 +282,7 @@ static void pc_rx_task(void *arg)
     // static: the parser holds a 133-byte buffer, keep it off the task stack.
     static frame_parser_t parser;
     frame_parser_init(&parser, on_pc_frame, NULL);
+    arm_state_init(&s_arm, PC_LINK_TIMEOUT_MS * 1000LL);
 
     uint8_t chunk[PC_RX_CHUNK_SIZE];
     while (1) {

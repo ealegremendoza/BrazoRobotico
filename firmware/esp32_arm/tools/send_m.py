@@ -6,7 +6,7 @@ Frame format (doc/md/bitacora-R09-ros2-control.md):
 
 Usage:
     send_m.py [--port /dev/ttyACM0] [--count N] [--period-ms MS] [--boot-wait-ms MS]
-              [--countdown S] [--reply-wait-ms MS] j1 j2 j3 j4 j5 j6
+              [--countdown S] [--reply-wait-ms MS] [--read-only] j1 j2 j3 j4 j5 j6
 
 Joint values are integers in milliradians (e.g. 1571 -1571 0 0 0 0).
 The ESP32 logs what it decoded on its console (UART1, GPIO14) and answers each M
@@ -21,6 +21,10 @@ sent, to get a hand on the power supply switch. Use --countdown 0 to skip it.
 
 After the last frame it keeps listening --reply-wait-ms (default 200) so late
 replies are not lost.
+
+The ESP32 boots STOPPED: M frames only read the servos until it gets an S (start).
+The script sends S before the M frames, unless --read-only is given (then the arm
+never moves and the replies show where it is).
 """
 import argparse
 import time
@@ -34,15 +38,20 @@ BAUD = 115200
 MRAD_MAX = 3142
 
 
-def build_m_frame(mrad):
-    fields = ["%+05d" % max(-MRAD_MAX, min(MRAD_MAX, v)) for v in mrad]
-    body = b"M" + bytes([FS]) + bytes([FS]).join(f.encode("ascii") for f in fields)
+def build_frame(cid, payload=b""):
+    """STX | LEN | CID | FS | payload | ETX | LRC (doc/md/bitacora-R09-ros2-control.md)."""
+    body = cid.encode("ascii") + bytes([FS]) + payload
     length = "%04d" % (len(body) + 2)  # + ETX + LRC
     covered = length.encode("ascii") + body + bytes([ETX])
     lrc = 0
     for b in covered:
         lrc ^= b
     return bytes([STX]) + covered + bytes([lrc])
+
+
+def build_m_frame(mrad):
+    fields = ["%+05d" % max(-MRAD_MAX, min(MRAD_MAX, v)) for v in mrad]
+    return build_frame("M", bytes([FS]).join(f.encode("ascii") for f in fields))
 
 
 def parse_frames(buf):
@@ -83,6 +92,8 @@ def main():
                         help="seconds to wait before sending, to reach the power switch (default 3, 0 = none)")
     parser.add_argument("--reply-wait-ms", type=int, default=200,
                         help="keep listening for replies after the last frame (default 200)")
+    parser.add_argument("--read-only", action="store_true",
+                        help="do not send S: the ESP32 stays STOPPED and only reports positions")
     parser.add_argument("mrad", type=int, nargs=6)
     args = parser.parse_args()
 
@@ -120,6 +131,8 @@ def main():
     try:
         time.sleep(args.boot_wait_ms / 1000.0)
         ser.reset_input_buffer()  # drop the ROM boot messages printed on UART0
+        if not args.read_only:
+            ser.write(build_frame("S"))  # start: M frames move the servos from now on
         for _ in range(args.count):
             ser.write(frame)
             time.sleep(args.period_ms / 1000.0)
