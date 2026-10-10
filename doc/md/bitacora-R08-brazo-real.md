@@ -10,6 +10,23 @@ Ejecutar el `task_server` (API de MoveIt2, `[R07]`) sobre el brazo real, a trav�
 - `[E06]`: vuelta completa PC → ESP32 → servos → PC verificada con el brazo (250/250 respuestas a 50 Hz, 5 joints convergen a ±1° del cero de los servos).
 - `[R05]`: los límites del URDF se verificaron con medición física relativa al cero calibrado (herramienta "Medicion de limites (URDF)" en `STServo_Python/servo_control_ui.py`).
 
+## Pendientes técnicos heredados
+
+1. ~~**`wrist_roll` (servo 5)**~~ — **resuelto con la recalibración** (ver "Paso 2"). Problema original, ver "Prueba de convergencia" en `doc/md/bitacora-E06-comando-m.md`:
+   - el cero calibrado (2048) cae detrás de un tope mecánico del antebrazo (~907 cuentas): sobrecarga (`0x20`) si se le manda el cero;
+   - sin límites en la EEPROM (`calibrate-arm.py` fuerza `[0, 4095]` salvo `--record-wrist-roll`);
+   - OFS = 1182: el rango físico cruza el corte de coordenadas → el servo puede ir por el camino largo y el feedback salta de +π a −π (2π para `ros2_control`).
+   - En el URDF es `revolute` con límites `[-2.74385, 2.84121]` rad.
+2. **`[R13]`** — puerto fijo `/dev/ttyACM0` en `robotic_arm_ros2_control.xacro`; la DevKitC WROOM aparece como `/dev/ttyUSB0`.
+3. **Reset al abrir el puerto** — el plugin, al activarse, reinicia el ESP32: ~300 ms sin respuestas. `read()` no debe tratarlo como falla.
+
+## Plan
+
+1. **Comparar los dos ceros** (sin tocar nada): RViz con todos los joints en 0 al lado del brazo real en su pose cero. Por joint: ¿coincide la pose? ¿coincide el **sentido** de giro?
+2. **Recalibrar** lo que no coincida (incluido `wrist_roll` con `--record-wrist-roll`), con la pose cero del URDF como referencia.
+3. **`[R13]`** y **tolerancia al reset** en el plugin.
+4. **`real_robot.launch.py`**: primero RViz (plan & execute de un movimiento chico), después el `task_server`.
+
 ## Paso 1 — Comparar los ceros (URDF vs brazo real)
 
 RViz (`ros2 launch robotic_arm_description display.launch.py`, todos los joints en 0) vs brazo real en su cero (`send_m.py ... 0 0 0 0 -1750 0`): `doc/img/robotic-arm-rviz-zero.png`, `doc/img/robotic-arm-real-zero.jpeg`.
@@ -54,23 +71,6 @@ Calibración final (`STServo_Python/calibration.json`), rangos en rad respecto d
 
 - **Los 6 sentidos coinciden:** `drive_mode` 0 en todos es correcto, no hay que invertir ninguno.
 - Los desvíos mezclan el error de la calibración y el de volver a poner la pose a ojo para medir. 5–8° no generan choques: alcanza para empezar con MoveIt. Si el pick & place necesita más precisión, afinar con una referencia mejor que el ojo (plantilla, escuadra).
-
-## Pendientes técnicos heredados
-
-1. **`wrist_roll` (servo 5)** — ver "Prueba de convergencia" en `doc/md/bitacora-E06-comando-m.md`:
-   - el cero calibrado (2048) cae detrás de un tope mecánico del antebrazo (~907 cuentas): sobrecarga (`0x20`) si se le manda el cero;
-   - sin límites en la EEPROM (`calibrate-arm.py` fuerza `[0, 4095]` salvo `--record-wrist-roll`);
-   - OFS = 1182: el rango físico cruza el corte de coordenadas → el servo puede ir por el camino largo y el feedback salta de +π a −π (2π para `ros2_control`).
-   - En el URDF es `revolute` con límites `[-2.74385, 2.84121]` rad.
-2. **`[R13]`** — puerto fijo `/dev/ttyACM0` en `robotic_arm_ros2_control.xacro`; la DevKitC WROOM aparece como `/dev/ttyUSB0`.
-3. **Reset al abrir el puerto** — el plugin, al activarse, reinicia el ESP32: ~300 ms sin respuestas. `read()` no debe tratarlo como falla.
-
-## Plan
-
-1. **Comparar los dos ceros** (sin tocar nada): RViz con todos los joints en 0 al lado del brazo real en su pose cero. Por joint: ¿coincide la pose? ¿coincide el **sentido** de giro?
-2. **Recalibrar** lo que no coincida (incluido `wrist_roll` con `--record-wrist-roll`), con la pose cero del URDF como referencia.
-3. **`[R13]`** y **tolerancia al reset** en el plugin.
-4. **`real_robot.launch.py`**: primero RViz (plan & execute de un movimiento chico), después el `task_server`.
 
 ## Pendientes
 
