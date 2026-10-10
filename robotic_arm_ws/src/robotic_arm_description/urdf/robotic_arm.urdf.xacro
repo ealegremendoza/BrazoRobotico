@@ -373,7 +373,8 @@
 		<parent link="shoulder_link"/>
 		<child link="upper_arm_link"/>
 		<axis xyz="0 0 1"/>
-		<limit effort="${effort}" velocity="${velocity}" lower="-1.74533" upper="1.74533"/>
+		<!-- upper: measured physical range +1.764 rad (R08 calibration) minus 0.05 rad margin -->
+		<limit effort="${effort}" velocity="${velocity}" lower="-1.74533" upper="1.71"/>
 	</joint>
 
 	<!-- Joint from upper_arm to lower_arm -->
@@ -383,7 +384,8 @@
 		<parent link="upper_arm_link"/>
 		<child link="lower_arm_link"/>
 		<axis xyz="0 0 1"/>
-		<limit effort="${effort}" velocity="${velocity}" lower="-1.69" upper="1.69"/>
+		<!-- measured physical range -1.693 .. +1.631 rad (R08 calibration) minus 0.05 rad margin -->
+		<limit effort="${effort}" velocity="${velocity}" lower="-1.64" upper="1.58"/>
 	</joint>
 
 	<!-- Joint from lower_arm to wrist -->
@@ -401,7 +403,8 @@
 		<parent link="wrist_link"/>
 		<child link="gripper_link"/>
 		<axis xyz="0 0 1"/>
-		<limit effort="${effort}" velocity="${velocity}" lower="-2.74385" upper="2.84121"/>
+		<!-- upper: measured physical range +2.775 rad (R08 calibration) minus 0.05 rad margin -->
+		<limit effort="${effort}" velocity="${velocity}" lower="-2.74385" upper="2.72"/>
 	</joint>
 
 	<!-- Joint from gripper to moving_jaw_so101_v1 -->
