@@ -118,17 +118,27 @@ Del log de `move_group`:
 
 **Primer movimiento del brazo real comandado por MoveIt:** RViz → `move_group` → `arm_controller` → plugin (`M` por USB) → ESP32 (`SYNC_WRITE`) → servos, y el feedback (`SYNC_READ` → `M` → `read()` → `/joint_states`) de vuelta hasta RViz. Junta todo lo de `[E06]`, `[R09]` y este `[R08]`.
 
+## Paso 6 — `task_server` sobre el brazo real
+
+**Velocidad del `task_server`:** `planning_python_api.yaml` tenía `max_velocity_scaling_factor` / `max_acceleration_scaling_factor` en **1.0** → planificaba a 4.24 rad/s (`joint_limits.yaml`), 10 veces lo que el firmware deja a los servos (0.46 rad/s). Físicamente no es peligroso (el firmware limita), pero MoveIt cree que el movimiento termina antes de que el brazo llegue y la tarea siguiente arranca fuera del `allowed_start_tolerance` (0.01): la secuencia se rompe. Pasados a **0.1** (0.42 rad/s, como el default de RViz en `joint_limits.yaml`). En Gazebo las tareas también van más lentas, coherentes con el real.
+
+**Prueba:** `real_robot.launch.py port:=/dev/ttyUSB0` (brazo en pose válida, espacio revisado: las tareas 2/3/5/6 giran la base ±1.36 rad y la 3 baja hacia la mesa) y las tareas de a una con `ros2 action send_goal /task_server robotic_arm_msgs/action/RoboticArmTask "{task_number: N}"`, N = 0…6.
+
+**Resultado: las 7 tareas terminaron `SUCCEEDED`** (pose cero, posición inicial, girar y abrir, agarrar, trasladar al centro, girar al otro lado, soltar). **`[R08]` cumplida.**
+
+**Pendientes que pasan al backlog** (no bloquean `[R08]`): `[R14]` límites duplicados en `robotic_arm_ros2_control.xacro`, `[R15]` recalibración más precisa, `[R16]` regla udev; el "home" automático al arrancar se agregó a `[E09]`.
+
 ## Pendientes
 
 - [x] Comparar cero y sentido de cada joint: URDF (RViz) vs brazo real
 - [x] Recalibrar con la pose cero del URDF (`--record-wrist-roll`): 6 sentidos correctos, ceros a ≤8°
 - [x] Límites del URDF dentro del rango físico con 0.05 rad de margen (`robotic_arm.urdf.xacro`): `elbow_flex` −1.64…+1.58 (era ±1.69), `wrist_roll` upper +2.72 (era +2.841), `shoulder_lift` upper +1.71 (era +1.745). El resto ya cumplía; el `gripper` lower queda con 0.03 (cerrar del todo no tiene riesgo). Las tareas del `task_server` siguen dentro (máx. `elbow_flex` +1.434, `wrist_roll` −1.416). Verificado con `xacro` + `check_urdf`
 - [x] `servo_control_ui.py`: botón `Home (cero)` manda a `ZERO_COUNTS` (2048) en vez del 50% del rango (ya no es el cero: el gripper queda ~9% de su slider). `calibrate-arm.py`: docstring y mensaje del HOMING → pose cero del URDF, los 6 joints a la vez. Probado: Home lleva el brazo a la pose de RViz; el `wrist_roll` queda ~8° torcido (el −7.8° de la verificación)
-- [ ] **Recalibración completa más precisa** (más adelante): el `wrist_roll` quedó ~8° corrido y `shoulder_pan` ~5°, por acomodar la pose a ojo. Hacerla con una referencia mejor (plantilla, escuadra, marcas en las piezas). Si solo hace falta un joint, `calibrate_servo_offset.py --id N --target 2048 --min .. --max ..` sirve, pero los límites de la EEPROM están en coordenadas del cero viejo: hay que correrlos lo mismo que el cero, en el mismo comando, y actualizar `calibration.json'
+- [ ] → `[R15]` **Recalibración completa más precisa** (más adelante): el `wrist_roll` quedó ~8° corrido y `shoulder_pan` ~5°, por acomodar la pose a ojo. Hacerla con una referencia mejor (plantilla, escuadra, marcas en las piezas). Si solo hace falta un joint, `calibrate_servo_offset.py --id N --target 2048 --min .. --max ..` sirve, pero los límites de la EEPROM están en coordenadas del cero viejo: hay que correrlos lo mismo que el cero, en el mismo comando, y actualizar `calibration.json'
 - [x] `[R13]`: puerto serie configurable con argumento del launch `port` (default `/dev/ttyUSB0`, la DevKitC WROOM): `real_robot.launch.py port:=...` → `controller.launch.py` → `xacro ... port:=...` → `<param name="port">` → plugin (el C++ ya lo leía de `hardware_parameters`). Verificado: `xacro` con y sin `port:=`, y `--show-args` en los dos launch. La regla udev (`/dev/robotic_arm`, por número de serie USB: el CP2102 del adaptador a comprar tiene el mismo VID:PID que la WROOM) queda para la computadora integrada
-- [ ] `robotic_arm_ros2_control.xacro` repite los límites de cada joint (`<param name="min">`/`max`) con los valores viejos (p. ej. `elbow_flex` ±1.69): alinearlos con el URDF
+- [ ] → `[R14]` `robotic_arm_ros2_control.xacro` repite los límites de cada joint (`<param name="min">`/`max`) con los valores viejos (p. ej. `elbow_flex` ±1.69): alinearlos con el URDF
 - [x] Arranque seguro (sin movimiento al activar `ros2_control`) — ver "Paso 4"
 - [x] Probar el arranque seguro con el brazo (ver "Pruebas del arranque seguro")
 - [x] `update_rate` de `controller_manager` de 10 a 50 Hz (`robotic_arm_controllers.yaml`)
 - [x] `real_robot.launch.py`: plan & execute desde RViz (ver "Paso 5")
-- [ ] `task_server` sobre el brazo real
+- [x] `task_server` sobre el brazo real: las 7 tareas `SUCCEEDED` (ver "Paso 6")
