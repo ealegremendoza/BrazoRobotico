@@ -76,7 +76,7 @@ Calibración final (`STServo_Python/calibration.json`), rangos en rad respecto d
 
 - [x] Comparar cero y sentido de cada joint: URDF (RViz) vs brazo real
 - [x] Recalibrar con la pose cero del URDF (`--record-wrist-roll`): 6 sentidos correctos, ceros a ≤8°
-- [ ] Bajar en el URDF el límite superior de `elbow_flex` (~1.58) y `wrist_roll` (~2.72): el brazo no los alcanza
+- [x] Límites del URDF dentro del rango físico con 0.05 rad de margen (`robotic_arm.urdf.xacro`): `elbow_flex` −1.64…+1.58 (era ±1.69), `wrist_roll` upper +2.72 (era +2.841), `shoulder_lift` upper +1.71 (era +1.745). El resto ya cumplía; el `gripper` lower queda con 0.03 (cerrar del todo no tiene riesgo). Las tareas del `task_server` siguen dentro (máx. `elbow_flex` +1.434, `wrist_roll` −1.416). Verificado con `xacro` + `check_urdf`
 - [ ] `servo_control_ui.py`: botón Home a 2048 (hoy manda al 50% del rango, que ya no es el cero); `calibrate-arm.py`: texto del HOMING → pose cero del URDF
 - [ ] `[R13]`: puerto serie configurable
 - [ ] Plugin: tolerar el reset del ESP32 al abrir el puerto
