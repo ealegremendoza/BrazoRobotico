@@ -77,7 +77,8 @@ Calibración final (`STServo_Python/calibration.json`), rangos en rad respecto d
 - [x] Comparar cero y sentido de cada joint: URDF (RViz) vs brazo real
 - [x] Recalibrar con la pose cero del URDF (`--record-wrist-roll`): 6 sentidos correctos, ceros a ≤8°
 - [x] Límites del URDF dentro del rango físico con 0.05 rad de margen (`robotic_arm.urdf.xacro`): `elbow_flex` −1.64…+1.58 (era ±1.69), `wrist_roll` upper +2.72 (era +2.841), `shoulder_lift` upper +1.71 (era +1.745). El resto ya cumplía; el `gripper` lower queda con 0.03 (cerrar del todo no tiene riesgo). Las tareas del `task_server` siguen dentro (máx. `elbow_flex` +1.434, `wrist_roll` −1.416). Verificado con `xacro` + `check_urdf`
-- [ ] `servo_control_ui.py`: botón Home a 2048 (hoy manda al 50% del rango, que ya no es el cero); `calibrate-arm.py`: texto del HOMING → pose cero del URDF
+- [x] `servo_control_ui.py`: botón `Home (cero)` manda a `ZERO_COUNTS` (2048) en vez del 50% del rango (ya no es el cero: el gripper queda ~9% de su slider). `calibrate-arm.py`: docstring y mensaje del HOMING → pose cero del URDF, los 6 joints a la vez. Probado: Home lleva el brazo a la pose de RViz; el `wrist_roll` queda ~8° torcido (el −7.8° de la verificación)
+- [ ] **Recalibración completa más precisa** (más adelante): el `wrist_roll` quedó ~8° corrido y `shoulder_pan` ~5°, por acomodar la pose a ojo. Hacerla con una referencia mejor (plantilla, escuadra, marcas en las piezas). Si solo hace falta un joint, `calibrate_servo_offset.py --id N --target 2048 --min .. --max ..` sirve, pero los límites de la EEPROM están en coordenadas del cero viejo: hay que correrlos lo mismo que el cero, en el mismo comando, y actualizar `calibration.json'
 - [ ] `[R13]`: puerto serie configurable
 - [ ] Plugin: tolerar el reset del ESP32 al abrir el puerto
 - [ ] `real_robot.launch.py`: plan & execute desde RViz
