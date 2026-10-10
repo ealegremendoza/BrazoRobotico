@@ -95,6 +95,12 @@ static void init_uarts(void)
  * Reads SERVO_BUS_POS_STATUS_SIZE bytes per call after the first batch, so each
  * call returns as soon as the next answer arrives instead of waiting for a full buffer.
  *
+ * Timeouts are in FreeRTOS ticks (10 ms at CONFIG_FREERTOS_HZ=100). A 1-tick timeout
+ * ends at the next tick interrupt, anywhere from 0 to 10 ms later: with only
+ * pdMS_TO_TICKS(10) the read sometimes gave up before the servos (~1.5 ms) answered
+ * ("0 bytes received", ~14% of cycles). Each wait adds one tick, so it lasts at
+ * least the remaining time; the deadline itself is measured with esp_timer.
+ *
  * @param positions Output: present position of each servo in counts, untouched on failure.
  * @return true if every servo answered in time, false otherwise.
  */
@@ -111,12 +117,18 @@ static bool read_servo_positions(int32_t positions[M_PAYLOAD_JOINTS])
     size_t want = M_PAYLOAD_JOINTS * SERVO_BUS_POS_STATUS_SIZE;  // no echo: exactly the answers
     int64_t deadline_us = esp_timer_get_time() + SERVO_READ_TIMEOUT_MS * 1000;
 
-    while (rx_len < sizeof(rx) && esp_timer_get_time() < deadline_us) {
+    while (rx_len < sizeof(rx)) {
+        int64_t remaining_us = deadline_us - esp_timer_get_time();
+        if (remaining_us <= 0) {
+            break;
+        }
+        // Round up to whole ms, then add one tick: see the tick granularity note above.
+        TickType_t wait = pdMS_TO_TICKS((uint32_t)((remaining_us + 999) / 1000)) + 1;
+
         size_t space = sizeof(rx) - rx_len;
-        int n = uart_read_bytes(SERVOS_UART_PORT, rx + rx_len, want < space ? want : space,
-                                pdMS_TO_TICKS(SERVO_READ_TIMEOUT_MS));
+        int n = uart_read_bytes(SERVOS_UART_PORT, rx + rx_len, want < space ? want : space, wait);
         if (n <= 0) {
-            break;  // nothing more arrived within the timeout
+            continue;  // nothing arrived in this wait: the deadline check ends the loop
         }
         rx_len += (size_t)n;
 
