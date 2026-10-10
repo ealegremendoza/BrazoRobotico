@@ -14,7 +14,8 @@ read-back position as counts + %, velocity and link status. Sliders are
     disabled while the bus is not connected and while an individual servo is
     not responding. When a servo (re)connects, its slider snaps to the servo's
     actual read-back position. A Home button in the toolbar sends every servo
-    back to 50% of its calibrated range, the calibrated zero pose. A Free
+    to the calibrated zero (ZERO_COUNTS = 2048, the URDF zero pose); that is
+    not 50% of the range, since joints like the gripper are not centered. A Free
     button disables torque on every servo (SMS_STS_TORQUE_ENABLE = 0) so the
     arm can be moved by hand; leaving Free re-holds each servo at its current
     read-back pose, so the arm does not snap back. Record saves
@@ -259,8 +260,12 @@ class ServoRow:
         self.on_write(self.servo_id, counts)
 
     def home(self):
-        """Command this servo back to the calibrated zero pose (50%)."""
-        self.command_counts(self.percent_to_counts(50))
+        """Command this servo to the calibrated zero (ZERO_COUNTS, the URDF zero pose).
+
+        Not 50% of the range: the zero is calibrated on the URDF zero pose, and
+        some joints (e.g. the gripper, almost closed at zero) are not centered.
+        """
+        self.command_counts(ZERO_COUNTS)
 
     def command_counts(self, counts):
         """Command an absolute encoder position, mirroring it on the slider."""
@@ -511,7 +516,7 @@ class ServoControlApp:
         self.disconnect_btn.grid(row=0, column=3, padx=4)
 
         self.home_btn = ttk.Button(
-            top, text="Home (50%)", command=self._home_all, state="disabled"
+            top, text="Home (cero)", command=self._home_all, state="disabled"
         )
         self.home_btn.grid(row=0, column=4, padx=4)
 
@@ -868,7 +873,7 @@ class ServoControlApp:
             self._worker.set_move_params(speed, acc)
 
     def _home_all(self):
-        """Send every servo back to the calibrated zero pose (50%)."""
+        """Send every servo to the calibrated zero (the URDF zero pose)."""
         if not self._connected or self._worker is None or self._free:
             return
         for row in self.rows:

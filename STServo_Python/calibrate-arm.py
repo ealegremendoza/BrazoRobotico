@@ -5,9 +5,13 @@ calibrate-arm.py - whole-arm calibration for the 6-DOF STS3215 arm.
 Similar in spirit to `lerobot-calibrate` (LeRobot) but much simpler and
 more direct. It calibrates all six servos of the arm in one session:
 
-  1. HOMING: put the arm in the ZERO pose (every joint at the middle of
-     its travel, gripper half open) and press ENTER. Each servo's OFS
+  1. HOMING: put the arm in the ZERO pose of the URDF (all joints at 0 rad,
+     e.g. side by side with RViz: upper arm vertical, forearm horizontal,
+     wrist straight, gripper almost closed) and press ENTER. Each servo's OFS
      register is written so that pose reports `--target` (default 2048).
+     It must be the URDF zero, not the middle of each joint's travel (the
+     LeRobot convention): MoveIt plans in URDF angles (see
+     doc/md/bitacora-R08-brazo-real.md).
   2. RANGES: move every joint through its full range of motion, one at a
      time. Min/max are recorded live. The wrist_roll joint (continuous
      rotation) is forced to the full [0, 4095] range unless
@@ -178,9 +182,10 @@ def homing(ph, target):
     """Write OFS so the current physical pose reports `target` on every servo."""
     print()
     print("=== HOMING ===")
-    print("Move the arm to the ZERO pose:")
-    print("  - every joint at the MIDDLE of its travel,")
-    print("  - gripper half open.")
+    print("Move the arm to the ZERO pose of the URDF (all joints at 0 rad,")
+    print("compare with RViz): upper arm vertical, forearm horizontal,")
+    print("wrist straight, wrist_roll as in RViz, gripper almost closed.")
+    print("All six joints at once: their zero is captured when you press ENTER.")
     print("Press ENTER when ready (or Ctrl+C to abort).")
     input()
 
