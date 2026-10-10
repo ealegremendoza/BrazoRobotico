@@ -72,6 +72,21 @@ Calibración final (`STServo_Python/calibration.json`), rangos en rad respecto d
 - **Los 6 sentidos coinciden:** `drive_mode` 0 en todos es correcto, no hay que invertir ninguno.
 - Los desvíos mezclan el error de la calibración y el de volver a poner la pose a ojo para medir. 5–8° no generan choques: alcanza para empezar con MoveIt. Si el pick & place necesita más precisión, afinar con una referencia mejor que el ojo (plantilla, escuadra).
 
+## Paso 4 — Arranque seguro del plugin (reset del ESP32 y pose inicial)
+
+**Revisión del plugin:** `read()` sin bytes devuelve `OK` y conserva la última posición: los ~300 ms del reset del ESP32 al abrir el puerto no desactivan el hardware. **Pero** `on_activate()` ponía `position_commands_` y `position_states_` en cero: `write()` manda una `M` cada ciclo con esos ceros y el `joint_trajectory_controller` se activa sosteniendo el estado leído (ceros, todavía no llegó feedback). Al lanzar `real_robot.launch.py` el brazo **salía solo hacia la pose cero** desde donde estuviera (riesgo de choque).
+
+**Solución** (versión mínima del arranque de `[R03]`: estado DETENIDO + comando `S`; el resto, en `[E09]`):
+
+- **Firmware** — módulo puro `main/arm_state.{h,c}`:
+  - arranca **DETENIDO**: las `M` solo leen los servos y responden el feedback, **no mueven**;
+  - **`S` (start)** → **OPERANDO**: las `M` mueven como antes;
+  - **watchdog de enlace**: en OPERANDO, más de 500 ms sin tramas → DETENIDO hasta otra `S`. Si el plugin se cae o se desenchufa el cable, el brazo nunca retoma objetivos viejos; cubre también el caso en que abrir el puerto no resetea el ESP32.
+  - Log de cada `M`: `M (move)` o `M (stopped, read only)`.
+  - Tests: `test_host/test_arm_state.c` (arranca detenido y las tramas solas no lo arrancan; `S` y `S` repetida; 50 Hz se mantiene; watchdog y nueva `S`; borde exacto del timeout; secuencia completa del arranque del plugin).
+- **Plugin** — `on_activate()` → `syncWithArm()`: abre el puerto, espera 700 ms (arranque del ESP32 y más que el watchdog), descarta lo recibido (ROM), manda `M` cada 20 ms hasta el primer feedback (máx. 2 s; si no llega → `FAILURE` con la sugerencia de qué revisar y el hardware no se activa), inicializa estados **y** comandos con la pose real (la loguea) y manda `S`. Armado de tramas separado en `buildFrame()` / `buildMPayload()`.
+- **`tools/send_m.py`**: manda `S` antes de las `M`; `--read-only` no la manda (solo lee posiciones).
+
 ## Pendientes
 
 - [x] Comparar cero y sentido de cada joint: URDF (RViz) vs brazo real
@@ -81,6 +96,7 @@ Calibración final (`STServo_Python/calibration.json`), rangos en rad respecto d
 - [ ] **Recalibración completa más precisa** (más adelante): el `wrist_roll` quedó ~8° corrido y `shoulder_pan` ~5°, por acomodar la pose a ojo. Hacerla con una referencia mejor (plantilla, escuadra, marcas en las piezas). Si solo hace falta un joint, `calibrate_servo_offset.py --id N --target 2048 --min .. --max ..` sirve, pero los límites de la EEPROM están en coordenadas del cero viejo: hay que correrlos lo mismo que el cero, en el mismo comando, y actualizar `calibration.json'
 - [x] `[R13]`: puerto serie configurable con argumento del launch `port` (default `/dev/ttyUSB0`, la DevKitC WROOM): `real_robot.launch.py port:=...` → `controller.launch.py` → `xacro ... port:=...` → `<param name="port">` → plugin (el C++ ya lo leía de `hardware_parameters`). Verificado: `xacro` con y sin `port:=`, y `--show-args` en los dos launch. La regla udev (`/dev/robotic_arm`, por número de serie USB: el CP2102 del adaptador a comprar tiene el mismo VID:PID que la WROOM) queda para la computadora integrada
 - [ ] `robotic_arm_ros2_control.xacro` repite los límites de cada joint (`<param name="min">`/`max`) con los valores viejos (p. ej. `elbow_flex` ±1.69): alinearlos con el URDF
-- [ ] Plugin: tolerar el reset del ESP32 al abrir el puerto
+- [x] Arranque seguro (sin movimiento al activar `ros2_control`) — ver "Paso 4"
+- [ ] Probar el arranque seguro con el brazo
 - [ ] `real_robot.launch.py`: plan & execute desde RViz
 - [ ] `task_server` sobre el brazo real
