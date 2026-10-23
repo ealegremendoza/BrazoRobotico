@@ -258,7 +258,7 @@ DETENIDO ──S──▶ INICIALIZADO ──(home + trabajo con M)──▶ OPE
 
 - **Parada enclavada (latched):** en `DETENIDO` el ESP32 **ignora las tramas `M`**. `write()` manda `M` cada ciclo (50 Hz) con el objetivo de la trayectoria en curso; si el ESP32 las obedeciera, el brazo retomaría el movimiento 20 ms después de frenar.
 - Solo sale de `DETENIDO` con el comando **`S` (start)**: rearmar tiene que ser una acción deliberada.
-- Todas las transiciones de estado se informan a la PC con un `E`.
+- Todas las transiciones de estado se informan a la PC con un `E`, salvo la aceptación de la `S`, que se responde con `M` (`[E10]`, ver "Comando `S`").
 
 #### Estado `ENSEÑANZA` (agregado con teach & repeat)
 
@@ -285,13 +285,19 @@ El ESP32 no necesita saber si algo está "guardado" o "finalizado": esos estados
 STX | LEN | S | FS | param_init (opcional) | ETX | LRC
 ```
 
-- `param_init`: configuración adicional opcional (contenido a definir).
-- **Se responde con `E`** (código "inicializado"), no con `S`: la `S` no pide datos, pide un cambio de estado, y todo cambio de estado se informa con `E`. La PC espera ese código con timeout; si no llega, no empieza a mandar `M`.
+- `param_init` (`[E10]`, DS10): los **límites de los joints** en mrad, en dos bloques con el formato del payload de la `M`: `min1 FS … FS min6 FS max1 FS … FS max6` (`%+05ld`, 35 + 1 + 35 = 71 bytes). El plugin los toma del URDF (`info_.limits`); el ESP32 los usa para el modo CTL del panel local y los guarda solo en RAM (arranca con una copia del URDF).
+  - Sin `param_init` (p. ej. `tools/send_m.py`): se acepta y se conservan los límites vigentes.
+  - Inválidos (bloque mal formado, min ≥ max, fuera de ±3142 mrad): se rechaza con `E 21`.
+- **Respuesta** (`[E10]`, D3; reemplaza al `E` "inicializado"):
+  - Aceptada → **`M` con la posición actual** de los servos. La lectura es atómica con el paso a `OPERANDO`: la PC carga esa pose en estados y comandos antes de mandar su primera `M`.
+  - Rechazada → **`E` con un código** (tabla en "Pendiente"): `01` si el panel local está en CTL (gana el panel, el ESP32 sigue en `DETENIDO`), `20` si los servos no responden, `21` si los límites son inválidos.
+  - La PC espera la respuesta con timeout (~200 ms, menor que el watchdog de enlace de 500 ms); `E` o timeout → falla la activación del plugin.
+- Una `S` en `OPERANDO` también se responde con `M` (sin cambio de estado).
 
 ### Secuencia de operación
 
-1. La PC manda `S` (con `param_init` opcional).
-2. El ESP32 responde `E` "inicializado".
+1. La PC manda `S` (con los límites de los joints en `param_init`).
+2. El ESP32 responde `M` con la posición actual (o `E` con el código si la rechaza).
 3. La PC manda el brazo a **home** antes de empezar el trabajo: el brazo arranca siempre desde una posición conocida (después del botón 2 queda donde lo dejaron a mano).
 4. Trabajo normal: `M` ↔ `M`.
 5. Botón → el ESP32 frena y manda `E`. La PC cambia de estado y decide qué hacer.
@@ -342,15 +348,17 @@ Opciones evaluadas (verificadas en Jazzy):
 
 ### Pendiente
 
-Tabla de códigos de `E`:
+Tabla de códigos de `E` (`[E10]`, DS8): payload de **dos dígitos decimales**, por rangos: `0x` respuestas y estados, `1x` paradas, `2x` errores. El plugin los traduce a texto. `[E10]` definió los que necesitaba; el resto queda para `[E09]` (el "inicializado" ya no hace falta: la `S` aceptada se responde con `M`).
 
 | Código | Evento |
 |---|---|
-| ? | Inicializado (respuesta a `S`) |
-| ? | Parada por botón 1 (torque mantenido) |
-| ? | Grip liberado (botón 1, 2.ª pulsación) |
-| ? | Torque cortado (botón 2) |
-| ? | Errores (servo que no responde, trama inválida, …) |
+| `01` | `S` rechazada: el panel local está en CTL |
+| `20` | Los servos no responden (al leer la posición para responder la `S`) |
+| `21` | Límites inválidos en el `param_init` de la `S` |
+| `1?` | Parada por botón 1 (torque mantenido) — `[E09]` |
+| `1?` | Grip liberado (botón 1, 2.ª pulsación) — `[E09]` |
+| `1?` | Torque cortado (botón 2) — `[E09]` |
+| `2?` | Otros errores (trama inválida, …) — `[E09]` |
 
 ## Teach & repeat (enseñar y repetir)
 

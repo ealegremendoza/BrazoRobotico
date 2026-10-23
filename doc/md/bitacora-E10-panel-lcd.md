@@ -238,3 +238,84 @@ Mapa del código de partida (`esp32_arm`, `pot_nav_lcd_idf`, plugin), con dos ha
 | 10 | Commits | Por unidad de trabajo: `arm_state` + tests → tarea del bus → UI → plugin → docs |
 
 Diseño cerrado: se puede pasar a la implementación.
+
+## Implementación
+
+### Commits
+
+| Commit | Qué |
+|---|---|
+| `031ea69` | `arm_state`: permiso de CTL, decisión sobre la `S` (`M` o `E` 01/20/21), watchdog periódico (`arm_state_poll`). Módulo `arm_limits` (límites por defecto, parseo del `param_init`, clamp). Tests |
+| `0c08c68` | Tarea del bus (`main/arm_bus.{h,c}`): dueña de UART2 y de `arm_state`, cola de 8, transacción única, respuestas a la PC, buzón de posiciones + límites, eventos. `pc_rx` queda como parser + reenvío. Kconfig `ARM_CTL_MOVE_SPEED/ACC` |
+| `f6aa29f` | UI de `pot_nav_lcd_idf`: `components/lcd`, `components/lcd_ui`, `main/{app,nav,button,pot,sensor}`, composición en `main/ui_panel.{h,c}`, teclado por UART1, menú `NAV_*`, `CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y`. Se eliminan el servo MOCK y `joint_sim_task` |
+| `2f6461c` | Plugin: `S` con los límites del URDF, pausa + vaciado, espera de la respuesta (`M` o `E`, 200 ms). `send_m.py` muestra el `E` de respuesta |
+| (este) | Documentación: `[R03]` y esta sección |
+
+### Qué quedó
+
+- **Tareas** (DS18 #1): `bus` 11 (4096), `pc_rx` 10, `input` 5 (UART1), `panel` 5, `ui` 2; callbacks del pulsador en `esp_timer`. `app_main` arranca primero el bus y `pc_rx` (el enlace con la PC no espera la inicialización I2C del LCD) y después el panel.
+- **Tarea del bus** (`arm_bus.c`): espera la cola con timeout de 100 ms y revisa el watchdog en cada vuelta. Pedidos: `M` (escribe los 6 solo en `OPERANDO` + lee, responde `M`), `S` (lee siempre, decide con `arm_state_on_start`, responde `M` o `E`), pedido de CTL (lee los 6 y concede o niega), salida de CTL, comando de CTL (escribe solo el joint concedido, con la velocidad de CTL, clamp a los límites vigentes, y lee). Publica `{valid, mrad[6], límites}` en el buzón y manda a la UI los eventos de cambio de estado y la respuesta al pedido de CTL (con el ángulo actual del joint).
+- **`arm_state`**: `arm_state_on_start()` decide en este orden: CTL concedido → `E 01`; límites inválidos → `E 21`; servos sin respuesta → `E 20`; si no, `OPERANDO` y `M`. `arm_state_ctl_request()` concede solo en `DETENIDO` con lectura OK; un comando de CTL solo mueve el joint concedido.
+- **`arm_limits`**: límites por defecto = URDF corregido en mrad redondeado como lo manda el plugin (`std::lround`): J1 ±1920, J2 −1745…1710, J3 −1640…1580, J4 ±1658, J5 −2744…2720, J6 −175…1745.
+- **UI** (`app_state`): modo `WAIT` entre el pedido de CTL y la respuesta; `LEC` y aviso de ~1.5 s (`TAREA EN CURSO`, `SERVO SIN RESP.`, `SIN RESPUESTA`); enganche del potenciómetro (fila 1 `GIRAR >>` / `<< GIRAR` hasta pasar por el ángulo actual); jog de ±5° desde el ángulo actual que desengancha; HOME `TAREA EN CURSO` con sesión; límites del buzón a grados enteros redondeados hacia adentro. Al salir de CTL o de JOINTS (también con la pulsación larga) se avisa la salida al bus.
+- **Plugin**: el `param_init` se arma con `info_.limits` y se loguea ("Joint limits sent in S"). Mensajes de falla: `E 01` → "start (S) rejected: the local panel is in CTL mode. Exit CTL on the panel (JOINTS) and relaunch"; `E 20`, `E 21` y timeout con su propio texto.
+
+### Desvíos respecto del diseño
+
+1. **Parseo de límites en un módulo aparte** (`arm_limits`, con su test): DS9 pedía el struct aparte y DS18 #7 un test del parseo; el parseo y el clamp quedaron junto al struct en lugar de dentro de `arm_state`.
+2. **Concesión de CTL con los 6 servos**: `servo_bus_parse_positions` es todo o nada, así que se concede si respondieron los 6 (DS14 decía "si respondió el servo seleccionado"). Más estricto.
+3. **Espera al mandar entrar/salir de CTL**: hasta 100 ms en lugar de 0 (DS18 #2), porque una salida perdida dejaría el CTL concedido y las `S` rechazadas. Los comandos de CTL y `pc_rx` siguen con espera 0.
+4. **Modo `WAIT` con timeout de 1 s** (no estaba en el diseño): si el pedido se pierde, la UI vuelve a NAV con `SIN RESPUESTA` y manda la salida (anula una concesión tardía).
+5. **`LEC` por pedido negado solo mientras se muestra el motivo** (~1.5 s), después vuelve a `NAV` y Enter reintenta. Con sesión activa, `LEC` es fijo (DS12).
+6. **El watchdog lo alimentan solo `M` y `S`**: `pc_rx` no reenvía otros CID (`D`, …) a la tarea del bus. Antes cualquier trama válida lo alimentaba.
+7. **`S` en `OPERANDO`**: se responde `M` (y aplica los límites) sin cambio de estado; antes no hacía nada. La `S` siempre lee los servos, también cuando se rechaza por CTL o límites (una sola función de decisión; leer no mueve nada).
+8. **Ángulo mostrado**: en CTL, después del primer comando, se muestra el comando; en NAV/`LEC` siempre la lectura (en `pot_nav_lcd_idf` un joint "sostenido" mostraba su comando para siempre, que con el brazo real quedaría viejo).
+9. **Enganche**: el potenciómetro engancha al cruzar el ángulo actual o a ±2° de él (`APP_CTL_ENGAGE_DEG`), por la resolución de 1 % (hasta ~3° por paso en J5). Si el ángulo al conceder está fuera de los límites, se toma el límite más cercano.
+10. **Pérdida de hasta 1° en los límites del panel**: por el redondeo del plugin a mrad y después hacia adentro a grados (p. ej. J2 −100° → −1745 mrad → −99°).
+11. **Composición de la UI en `main/ui_panel.{h,c}`** (el `main.c` de `pot_nav_lcd_idf`) en lugar de en `esp32_arm.c`. `button_esp32.c` no necesitó cambios (queda igual al original).
+
+### Tests de host
+
+Desde `firmware/esp32_arm` (en zsh, `${=CF}`):
+
+```bash
+CF="-Wall -Wextra -Werror -fsanitize=address,undefined"
+gcc $CF -I main test_host/test_frame_parser.c main/frame_parser.c -o /tmp/t1 && /tmp/t1
+gcc $CF -I main test_host/test_m_payload.c main/m_payload.c -o /tmp/t2 && /tmp/t2
+gcc $CF -I main test_host/test_servo_bus.c main/servo_bus.c -o /tmp/t3 && /tmp/t3
+gcc $CF -I main test_host/test_servo_units.c main/servo_units.c -lm -o /tmp/t4 && /tmp/t4
+gcc $CF -I main test_host/test_arm_state.c main/arm_state.c -o /tmp/t5 && /tmp/t5
+gcc $CF -I main test_host/test_arm_limits.c main/arm_limits.c main/m_payload.c -o /tmp/t6 && /tmp/t6
+gcc $CF -I main/app -I main/nav test_host/test_app_state.c main/app/app_state.c \
+    main/nav/pot_nav.c -lm -o /tmp/t7 && /tmp/t7
+gcc $CF -I main/nav test_host/test_pot_nav.c main/nav/pot_nav.c -o /tmp/t8 && /tmp/t8
+gcc $CF -I main/button test_host/test_button_core.c main/button/button_core.c \
+    main/button/pulsador_core.c -o /tmp/t9 && /tmp/t9
+gcc $CF -I main/pot test_host/test_pot_core.c main/pot/pot_core.c -o /tmp/t10 && /tmp/t10
+gcc $CF -I components/lcd_ui/core test_host/test_ui_core.c components/lcd_ui/core/ui_core.c \
+    -o /tmp/t11 && /tmp/t11
+gcc $CF -I components/lcd/core test_host/test_lcd_core.c components/lcd/core/lcd_core.c \
+    -o /tmp/t12 && /tmp/t12
+```
+
+Los 12 pasan. Copias idénticas a `pot_nav_lcd_idf` (verificar con `cmp`/`diff -r`): `components/lcd`, `components/lcd_ui`, `main/pot`, `main/sensor`, `main/nav`, `main/button` y `test_pot_core.c`, `test_ui_core.c`, `test_lcd_core.c`, `test_pot_nav.c`, `test_button_core.c`. Adaptados: `main/app/*`, `test_app_state.c`.
+
+### Antes de grabar
+
+- El `sdkconfig` local (no versionado) creado antes de `[E10]` no toma `CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y` de `sdkconfig.defaults`: borrarlo (`rm sdkconfig`, se regenera) o activarlo en `idf.py menuconfig`. Las opciones nuevas (`NAV_*`, `ARM_CTL_*`, LCD) sí toman sus valores por defecto.
+
+### Conexionado del panel
+
+| Elemento | ESP32 |
+|---|---|
+| LCD 1602 I2C | SDA GPIO25, SCL GPIO26, a través del HW-221 (lado A 3,3 V con OE puenteado, lado B 5 V al módulo) |
+| Potenciómetro B1K | cursor a GPIO34 (ADC1 canal 6), extremos a 3V3 y GND |
+| Pulsador | GPIO33, pull-up externo de 10 kΩ a 3V3, pulsador a GND con 100 nF en paralelo |
+| Teclado/consola | adaptador USB-serie (CP2102) en GPIO14 (TX del ESP32) / GPIO27 (RX), 115200 |
+
+### Prueba con el brazo (DS18 #8)
+
+1. Sin PC: JOINTS → Enter en un joint → `CTL` y `GIRAR >>`/`<<`; girar hasta enganchar, mover; los demás joints no se mueven.
+2. Con `real_robot.launch.py`: HOME `TAREA EN CURSO`; JOINTS `LEC` con valores vivos; Enter muestra `TAREA EN CURSO` ~1.5 s. En el log del plugin, "Joint limits sent in S" con los límites del URDF y "Start accepted".
+3. Lanzar con el panel en CTL: el plugin falla con "ESP32 rejected start (E 01) …".
+4. Matar el plugin: HOME vuelve a `Enter: menu` en ~0.6 s.
