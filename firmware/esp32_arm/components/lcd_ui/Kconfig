@@ -1,0 +1,21 @@
+menu "LCD UI (lcd_ui) Configuration"
+
+    config LCD_UI_MAX_WIDGETS
+        int "Widgets per screen"
+        range 4 64
+        default 12
+        help
+            Size of the static widget pool. Every ui_screen_begin() empties it; a
+            screen that adds more widgets fails in ui_screen_end() with
+            ESP_ERR_NO_MEM. Footer lines count as widgets.
+
+    config LCD_UI_TEXT_MAX
+        int "Longest text per widget (characters)"
+        range 16 512
+        default 64
+        help
+            Every widget copies its text (ui_text, labels, messages, the typed line)
+            into a buffer of this size plus the NUL. Longer texts are cut. The panel
+            shows at most 32 characters (16x2) anyway.
+
+endmenu

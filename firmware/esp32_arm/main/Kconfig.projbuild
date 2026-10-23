@@ -69,3 +69,50 @@ menu "Robotic Arm Configuration"
             100 steps/s^2 (10 ~= 88 deg/s^2). Separate from ARM_SERVO_MOVE_ACC.
 
 endmenu
+
+menu "Pot + button navigation"
+
+    config NAV_BUTTON_GPIO
+        int "Button GPIO"
+        range 0 39
+        default 33
+        help
+            Pushbutton input: active low, external 10 kOhm pull-up to 3V3 and 100 nF
+            across the button (as in pulsador_idf). No internal pull is enabled. Read
+            with a level-triggered IRQ plus debounce / long-press timers. Avoid
+            the strapping pins (0, 2, 5, 12, 15) and the LCD (25, 26) and pot (34) pins.
+
+    config NAV_BUTTON_DEBOUNCE_MS
+        int "Button debounce (ms without changes)"
+        range 10 200
+        default 30
+        help
+            One-shot timer started by the button IRQ (which is then masked): when it
+            expires the pin is read, the level confirmed and the IRQ re-armed.
+
+    config NAV_LONG_PRESS_MS
+        int "Long press (ms): go to HOME"
+        range 500 10000
+        default 3000
+        help
+            Holding the button this long goes to HOME from any screen or mode. It
+            fires once while the button is still held; the release then gives no
+            short press.
+
+    config NAV_POT_STEP_PCT
+        int "Pot navigation step (% of travel per item)"
+        range 2 50
+        default 8
+        help
+            Relative navigation: every time the pot moves this much from its anchor,
+            the cursor moves one item (menu entry, INFO line, joint).
+
+    config NAV_POT_HYST_PCT
+        int "Pot navigation reverse hysteresis (%)"
+        range 0 10
+        default 2
+        help
+            Extra travel needed to move the cursor back after a move, so ADC noise
+            near a step boundary cannot toggle it. Must be smaller than the step.
+
+endmenu

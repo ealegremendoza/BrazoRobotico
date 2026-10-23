@@ -7,6 +7,8 @@
  * - bus (priority 11, arm_bus.c): only owner of the servo bus (UART2) and of arm_state;
  *   answers the PC on UART0.
  * - pc_rx (priority 10): reads UART0, reassembles frames and forwards M and S to the bus.
+ * - input, panel (5) and ui (2) (ui_panel.c): the local panel (LCD, pot, button, console
+ *   keys); CTL requests go to the bus task, positions and limits come from its mailbox.
  */
 
 #include <stdio.h>
@@ -24,6 +26,7 @@
 #include "board_pins.h"
 #include "frame_parser.h"
 #include "m_payload.h"
+#include "ui_panel.h"
 
 // RX ring buffers must be larger than the 128-byte hardware FIFO.
 // The PC buffer holds several frames: an M frame is 44 bytes, a D frame up to ~130.
@@ -165,12 +168,17 @@ static void pc_rx_task(void *arg)
 }
 
 /**
- * @brief ESP-IDF entry point: initializes the UARTs, the servo bus task and the PC receive
- *        task.
+ * @brief ESP-IDF entry point: initializes the UARTs, the local panel, the servo bus task and
+ *        the PC receive task.
  */
 void app_main(void)
 {
     init_uarts();
-    ESP_ERROR_CHECK(arm_bus_start(NULL, NULL));
+    // The PC link first: the panel's LCD init (I2C) must not delay it. Bus events sent before
+    // the panel's queue exists are dropped by the callback (none happen that early).
+    ESP_ERROR_CHECK(arm_bus_start(ui_panel_on_bus_event, NULL));
     xTaskCreate(pc_rx_task, "pc_rx", PC_RX_TASK_STACK_SIZE, NULL, PC_RX_TASK_PRIORITY, NULL);
+    if (ui_panel_start() != ESP_OK) {
+        ESP_LOGE(TAG, "Local panel not started; the PC link keeps working");
+    }
 }

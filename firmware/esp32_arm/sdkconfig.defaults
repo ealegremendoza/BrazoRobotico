@@ -13,3 +13,7 @@ CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
 
 # Both boards have 4MB flash (esptool flash_id); the ESP-IDF default is 2MB.
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# Panel button ISR (IRAM, ESP_INTR_FLAG_IRAM): it calls gpio_intr_disable(), which is placed in
+# IRAM only with this option. esp_timer_start_once() is in IRAM by default (CONFIG_ESP_TIMER_IN_IRAM).
+CONFIG_GPIO_CTRL_FUNC_IN_IRAM=y
