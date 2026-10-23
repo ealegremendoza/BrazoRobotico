@@ -44,6 +44,12 @@ _Última actualización: 2026-10-23_
 - [ ] **[R16]** (Depende de R13) Regla udev para el ESP32 (`/dev/robotic_arm`, por número de serie USB: el adaptador CP2102 tiene el mismo VID:PID que la DevKitC WROOM) y default del argumento `port` a ese nombre, para la computadora integrada
 - [ ] **[R17]** (Depende de E10) Investigar los `Overrun detected` del `controller_manager` con el brazo real: a veces el `read()` del plugin tarda ~35 ms esperando la respuesta `M` del ESP32 y el ciclo es de 20 ms (50 Hz), así que se pierden 2 ciclos. En la prueba de E10 pasó 2 veces en ~7 minutos. Ver si es la latencia del bus de servos en el ESP32, el timeout de lectura del plugin o el puerto serie de la PC
 
+## 🔌 PCB / Hardware
+
+- [ ] **[P01]** Hacer la primera versión del esquemático de la placa controladora (`pcb/arm_controller_board`). Ya hecho: símbolo y footprints de la ESP32-DevKitC V4 de 38 pines (`ESP32_DevKitC_V4_38` y `ESP32_DevKitC_V4_38_Underfill`, este último deja poner componentes bajo el módulo)
+- [ ] **[P02]** (Depende de P01) Ubicar los componentes en la placa y rutear. Antes de fabricar: imprimir el footprint de la DevKit a escala 1:1 y verificar el calce
+- [ ] **[P03]** (Depende de P02) Fabricar la placa
+
 ## 📌 Otros
 
 - [ ] (agregar tareas aquí)
