@@ -1,6 +1,6 @@
 # Backlog de Tareas
 
-_Última actualización: 2026-10-08_
+_Última actualización: 2026-10-23_
 
 ## Cómo usar este documento
 - Agregar tareas nuevas bajo la categoría correspondiente (o crear una nueva sección si hace falta).
@@ -20,7 +20,8 @@ _Última actualización: 2026-10-08_
 - [x] **[E07]** Evaluar si hace falta realmente desacoplar la gestión del driver de motores hacia el ESP32, o si está bien como está — ver `doc/md/bitacora-R09-ros2-control.md` (sí: protocolo propio PC↔ESP32 por display/botones, parada de emergencia latcheada y calibración en el ESP32)
 - [x] ~~**[E08]** (Depende de E07) Hacer un nuevo script de Python para delegar la parte de gestión del driver de motores al ESP32~~ — **cancelada**: la delegación al ESP32 ya la hace el plugin C++ de `[R09]` (tramas `M`); lo que falta del lado ESP32 es `[E06]`
 - [ ] **[E09]** (Depende de E06) Completar el firmware del ESP32 según la arquitectura de `[R03]`: máquina de estados (incluido `ENSEÑANZA`), parada de emergencia latcheada, comandos `E`/`S`/`D`, LCD 20x4, botones y potenciómetro del gripper — ver `doc/md/bitacora-R03-arquitectura.md`. Ya hecho en `[R08]`: estado DETENIDO/OPERANDO mínimo, `S` (sin la respuesta `E`) y watchdog de enlace (`main/arm_state.{h,c}`). Falta también: ir a un "home" válido al arrancar (en reposo el brazo queda fuera de los límites del URDF y MoveIt no planifica desde ahí)
-- [ ] **[E10]** (Depende de E06, R08) Incorporar a `firmware/esp32_arm` el panel de `pot_nav_lcd_idf` (LCD 1602 I2C + potenciómetro + pulsador): la pantalla JOINTS mueve el brazo real como otra fuente de control (NAV elige el joint, CTL lo mueve con el potenciómetro). Con una sesión de ROS activa (`OPERANDO`) el menú sigue habilitado, HOME muestra "TAREA EN CURSO" y JOINTS es de solo lectura — ver `doc/md/bitacora-E10-panel-lcd.md`
+- [x] **[E10]** (Depende de E06, R08) Incorporar a `firmware/esp32_arm` el panel de `pot_nav_lcd_idf` (LCD 1602 I2C + potenciómetro + pulsador): la pantalla JOINTS mueve el brazo real como otra fuente de control (NAV elige el joint, CTL lo mueve con el potenciómetro). Con una sesión de ROS activa (`OPERANDO`) el menú sigue habilitado, HOME muestra "TAREA EN CURSO" y JOINTS es de solo lectura — ver `doc/md/bitacora-E10-panel-lcd.md`. Probado con el brazo real: CTL sin PC en los 6 joints, plan & execute con "TAREA EN CURSO" y JOINTS en LEC, límites de `S` iguales al URDF, arranque rechazado con `E 01` si el panel está en CTL y vuelta a HOME al cortar el plugin. Pendiente en `[E11]`
+- [ ] **[E11]** (Depende de E10) Evitar el salto al entrar a CTL: si un joint está en reposo fuera de los límites del URDF, al entrar a CTL salta de golpe hacia adentro (3°–12° en las pruebas), contra DS13 (entrar a CTL no mueve el brazo). Evaluar junto con el "home" válido al arrancar de `[E09]` — ver `doc/md/bitacora-E10-panel-lcd.md`
 
 ## 🦾 Brazo Robótico
 
