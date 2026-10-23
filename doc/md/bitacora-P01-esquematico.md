@@ -61,18 +61,46 @@ Verificadas contra `sdkconfig`, el código y la tabla de conexionado de `bitacor
 
 ## Esquemático (primera versión)
 
+Referencias tal como quedaron después del Annotate del usuario (ordenado por posición Y). Los conectores de potenciómetros y pulsadores no quedaron con números seguidos: se dejó así a propósito.
+
 | Ref | Qué | Pines / red | Footprint |
 |---|---|---|---|
-| A1 | ESP32-DevKitC V4 | ver tabla de conexiones | `ESP32_DevKitC_V4_38_Underfill` |
-| A2 | HW-221 | VA y OE a +3V3, VB a +5V; A1/B1 = SDA, A2/B2 = SCL; A3–A8 y B3–B8 sin conectar | `HW221_TXS0108E` |
-| J1 | SERVO | 1 SERVO_TX (IO17), 2 SERVO_RX (IO16), 3 GND | pin header 1x03 |
-| J2 | LCD | 1 GND, 2 +5V, 3 SDA_5V, 4 SCL_5V (orden del módulo PCF8574) | pin header 1x04 |
-| J3 | POT | 1 +3V3, 2 POT_WIPER (IO34), 3 GND | pin header 1x03 |
-| J4 | BUTTON | 1 NAV_BTN (IO33), 2 GND | pin header 1x02 |
-| J5 | CONSOLE | 1 GND, 2 CON_TX (IO14, al RXD del adaptador), 3 CON_RX (IO27, al TXD del adaptador) | pin header 1x03 |
-| R1 | 10 kΩ pull-up | +3V3 – NAV_BTN | THT axial DIN0207 |
-| C1 | 100 nF | NAV_BTN – GND | THT disco 5 mm |
+| A1 | HW-221 | VA y OE a +3V3, VB a +5V; A1/B1 = SDA, A2/B2 = SCL; A3–A8 y B3–B8 sin conectar | `HW221_TXS0108E` |
+| A2 | ESP32-DevKitC V4 | ver tablas de conexiones y de pines | `ESP32_DevKitC_V4_38_Underfill` |
+| J1 | LCD | 1 GND, 2 +5V, 3 SDA_5V, 4 SCL_5V (orden del módulo PCF8574) | pin header 1x04 |
+| J3, J2, J4, J5, J9, J10 | POT1 … POT6 (en ese orden) | 1 +3V3, 2 cursor (POTn), 3 GND | pin header 1x03 |
+| J6 | NAV_BTN (IO23) | 1 señal, 2 GND | pin header 1x02 |
+| J7 | STOP_BTN (IO18) | 1 señal, 2 GND | pin header 1x02 |
+| J8 | TORQUE_OFF_BTN (IO19) | 1 señal, 2 GND | pin header 1x02 |
+| J11 | CONSOLE | 1 GND, 2 CON_TX (IO14, al RXD del adaptador), 3 CON_RX (IO27, al TXD del adaptador) | pin header 1x03 |
+| J12 | SERVO | 1 SERVO_TX (IO17), 2 SERVO_RX (IO16), 3 GND | pin header 1x03 |
+| R1 / C1 | 10 kΩ pull-up / 100 nF | NAV_BTN | THT axial DIN0207 / THT disco 5 mm |
+| R2 / C2 | 10 kΩ pull-up / 100 nF | STOP_BTN | ídem |
+| R3 / C3 | 10 kΩ pull-up / 100 nF | TORQUE_OFF_BTN | ídem |
 
 - PWR_FLAG en GND (ninguna salida de potencia maneja GND); +3V3 y +5V los entrega la DevKit (`power_out`).
 - ERC de KiCad 9.0.7 (`kicad-cli sch erc --severity-all`): 0 violaciones. El netlist exportado tiene las 13 redes de la tabla.
 - R1 y C1 quedaron THT por facilidad de soldado; se pueden pasar a SMD 0805 si se quiere ponerlos debajo de la DevKit.
+
+## Reasignación de pines: botones de parada y 6 potenciómetros
+
+- Se agregan los dos botones de `[R03]` (1: parar/soltar, 2: cortar torque) con el mismo circuito que el de navegación (pull-up 10 kΩ a 3V3, a GND con 100 nF en paralelo).
+- El ADC1 de la DevKitC tiene 6 canales accesibles (IO32–IO36, IO39). Para dejarlos todos a los potenciómetros, los botones van a pines digitales.
+- Descartados para botones: IO0, 2, 5, 12 y 15 (strapping) e IO36/IO39 (errata 3.11 del ESP32: pulsos falsos en la entrada digital con el ADC encendido; para lecturas del ADC sí sirven).
+- Los nombres de los potenciómetros son de hardware (`POT1`…`POT6`, por posición en el panel); qué joint mueve cada uno lo decide el firmware. El de navegación es el del gripper (en IO34, el canal que ya usa `ui_panel.c`).
+
+| Señal | GPIO | Uso por defecto (firmware) |
+|---|---|---|
+| `NAV_BTN` | IO23 | Enter de la UI (antes IO33: hay que cambiar `CONFIG_NAV_BUTTON_GPIO`) |
+| `STOP_BTN` | IO18 | botón 1, parar/soltar |
+| `TORQUE_OFF_BTN` | IO19 | botón 2, cortar torque |
+| `POT1` | IO39 (ADC1 CH3) | shoulder_pan |
+| `POT2` | IO35 (ADC1 CH7) | shoulder_lift |
+| `POT3` | IO32 (ADC1 CH4) | elbow_flex |
+| `POT4` | IO33 (ADC1 CH5) | wrist_flex |
+| `POT5` | IO36 (ADC1 CH0) | wrist_roll |
+| `POT6` | IO34 (ADC1 CH6) | gripper + navegación |
+
+- Firmware: `button_esp32.c` maneja un solo botón (estado estático, `ESP_ERR_INVALID_STATE` en el segundo `button_init`); para los botones de parada hay que generalizarlo (`[E09]`).
+- Parada de emergencia física: pulsador hongo externo en serie con la fuente de los servos (9–12,6 V), fuera de esta placa. Corta la potencia aunque el firmware esté colgado (el brazo cae por gravedad). Opcional a futuro: avisar al ESP32 con un segundo contacto del hongo o midiendo la tensión de la fuente en un pin digital libre (IO4 o IO13).
+- ERC con los cambios del usuario: 0 violaciones; el netlist coincide con la tabla.
