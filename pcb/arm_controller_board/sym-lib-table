@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "arm_controller_board")(type "KiCad")(uri "${KIPRJMOD}/arm_controller_board.kicad_sym")(options "")(descr ""))
+)
