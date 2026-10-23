@@ -4,6 +4,13 @@
 	(generator_version "9.0")
 	(uuid "15032cd0-160d-42cb-93e3-2fc4f4993649")
 	(paper "A4")
+	(title_block
+		(title "Placa controladora del brazo robótico")
+		(date "2026-10-23")
+		(rev "1")
+		(company "UTN FRBA - Proyecto Final")
+		(comment 1 "Autor: Ezequiel Alegre Mendoza")
+	)
 	(lib_symbols
 		(symbol "Connector_Generic:Conn_01x02"
 			(pin_names
