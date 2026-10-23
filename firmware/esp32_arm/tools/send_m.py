@@ -24,7 +24,9 @@ replies are not lost.
 
 The ESP32 boots STOPPED: M frames only read the servos until it gets an S (start).
 The script sends S before the M frames, unless --read-only is given (then the arm
-never moves and the replies show where it is).
+never moves and the replies show where it is). The S goes without param_init, so the
+ESP32 keeps its default joint limits; it answers it with an M (the pose, accepted) or
+an E with a code (rejected, e.g. 01 when the local panel is in CTL mode).
 """
 import argparse
 import time
@@ -36,6 +38,12 @@ ETX = 0x03
 FS = 0x1C
 BAUD = 115200
 MRAD_MAX = 3142
+# E codes (doc/md/bitacora-R03-arquitectura.md)
+E_CODES = {
+    "01": "S rejected: the local panel is in CTL mode",
+    "20": "the servos did not answer",
+    "21": "invalid joint limits in S",
+}
 
 
 def build_frame(cid, payload=b""):
@@ -125,6 +133,11 @@ def main():
         frames, rx = parse_frames(rx)
         for cid, payload in frames:
             replies += 1
+            if cid == "E":
+                # S rejected (or another event): two-digit code, see E_CODES
+                code = payload.decode("ascii", "replace")
+                print("Reply E %s: %s" % (code, E_CODES.get(code, "unknown code")))
+                continue
             fields = payload.split(bytes([FS]))
             print("Reply %s: %s mrad" % (cid, " ".join(f.decode("ascii", "replace") for f in fields)))
 

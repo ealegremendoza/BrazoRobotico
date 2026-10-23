@@ -37,6 +37,31 @@ constexpr size_t kReadTimeoutMs = 1;
 constexpr auto kBootWait = std::chrono::milliseconds(700);
 constexpr auto kSyncTimeout = std::chrono::milliseconds(2000);
 constexpr auto kSyncPollPeriod = std::chrono::milliseconds(20);  // like the 50 Hz loop
+// Start (S) handshake (doc/md/bitacora-E10-panel-lcd.md, DS17): a pause so a late probe
+// reply arrives and can be flushed, then the S and its reply (M or E). The ESP32 answers in
+// ~5 ms; the timeout stays below its 500 ms link watchdog.
+constexpr auto kStartPause = std::chrono::milliseconds(50);
+constexpr auto kStartReplyTimeout = std::chrono::milliseconds(200);
+constexpr auto kStartReplyPoll = std::chrono::milliseconds(5);
+
+// Translates the two-digit code of an "E" frame (table in doc/md/bitacora-R03-arquitectura.md)
+std::string describeEvent(const std::string &code)
+{
+  if (code == "01")
+  {
+    return "start (S) rejected: the local panel is in CTL mode. Exit CTL on the panel "
+           "(JOINTS) and relaunch";
+  }
+  if (code == "20")
+  {
+    return "the servos did not answer (servos powered? driver jumper on A?)";
+  }
+  if (code == "21")
+  {
+    return "invalid joint limits in the S frame (check the URDF joint limits)";
+  }
+  return "unknown event code";
+}
 
 // Parses an "M" payload (j1 FS j2 FS ... FS jn, mrad) into radians.
 // All or nothing: on any malformed field, positions is left untouched.
@@ -191,11 +216,10 @@ CallbackReturn RoboticArmInterface::on_activate(const rclcpp_lifecycle::State &p
 
   // Never start from the zeros above: the controllers would hold them and the arm
   // would drive to the zero pose on its own. Start from the real pose instead.
-  if (!syncWithArm())
+  std::string error;
+  if (!syncWithArm(error))
   {
-    RCLCPP_FATAL_STREAM(rclcpp::get_logger("RoboticArmInterface"),
-                        "No M feedback from the ESP32 on " << port_
-                            << " (servos powered? driver jumper on A? right port?)");
+    RCLCPP_FATAL_STREAM(rclcpp::get_logger("RoboticArmInterface"), error);
     serial_port_.Close();
     return CallbackReturn::FAILURE;
   }
@@ -205,14 +229,18 @@ CallbackReturn RoboticArmInterface::on_activate(const rclcpp_lifecycle::State &p
   return CallbackReturn::SUCCESS;
 }
 
-/* Startup sync with the ESP32 (minimal version of the R03 start sequence).
+/* Startup sync with the ESP32 (minimal version of the R03 start sequence, E10 DS17).
  * The ESP32 boots STOPPED: "M" frames only read the servos and answer the feedback,
  * they never move them. So: wait for its boot, send "M" until the first feedback
- * arrives, start states AND commands from that real pose (the controllers then hold
- * it, nothing moves) and finally send "S" (start) so later "M" frames move the arm.
+ * arrives (the ESP32 is alive), pause and flush, send "S" (start, with the URDF joint
+ * limits) and wait for its reply: "M" with the current pose (accepted, atomic with the
+ * start) or "E" with a code (rejected). States AND commands start from that pose, before
+ * write() sends the first "M" (the controllers then hold it, nothing moves).
  */
-bool RoboticArmInterface::syncWithArm()
+bool RoboticArmInterface::syncWithArm(std::string &error)
 {
+  error = "No M feedback from the ESP32 on " + port_ +
+          " (servos powered? driver jumper on A? right port?)";
   std::this_thread::sleep_for(kBootWait);
   try
   {
@@ -249,23 +277,89 @@ bool RoboticArmInterface::syncWithArm()
     return false;
   }
 
+  // Let the reply to the last probe arrive and drop it: only the S reply must be read now
+  std::this_thread::sleep_for(kStartPause);
+  try
+  {
+    serial_port_.FlushInputBuffer();
+  }
+  catch (...)
+  {
+    return false;
+  }
+  rx_buffer_.clear();
+  m_received_ = false;
+  e_received_ = false;
+
+  const std::string limits = buildLimitsPayload();
+  try
+  {
+    serial_port_.Write(buildFrame('S', limits));
+  }
+  catch (...)
+  {
+    error = "Something went wrong while sending S to the port " + port_;
+    return false;
+  }
+
+  const auto reply_deadline = std::chrono::steady_clock::now() + kStartReplyTimeout;
+  while (!m_received_ && !e_received_ && std::chrono::steady_clock::now() < reply_deadline)
+  {
+    std::this_thread::sleep_for(kStartReplyPoll);
+    if (read(rclcpp::Time(), rclcpp::Duration(0, 0)) != hardware_interface::return_type::OK)
+    {
+      error = "Something went wrong while waiting for the S reply on " + port_;
+      return false;
+    }
+  }
+  if (e_received_)
+  {
+    error = "ESP32 rejected start (E " + e_code_ + "): " + describeEvent(e_code_);
+    return false;
+  }
+  if (!m_received_)
+  {
+    error = "No reply to S (start) from the ESP32 on " + port_ + " within " +
+            std::to_string(kStartReplyTimeout.count()) + " ms";
+    return false;
+  }
+
+  // The pose read by the ESP32 at the start: the controllers hold it, nothing moves (D3)
   position_commands_ = position_states_;
   std::string pose;
   for (const double rad : position_states_)
   {
     pose += " " + std::to_string(rad);
   }
-  RCLCPP_INFO_STREAM(rclcpp::get_logger("RoboticArmInterface"), "Arm pose at startup (rad):" << pose);
-
-  try
-  {
-    serial_port_.Write(buildFrame('S', ""));
-  }
-  catch (...)
-  {
-    return false;
-  }
+  RCLCPP_INFO_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                     "Start accepted, arm pose (rad):" << pose);
   return true;
+}
+
+std::string RoboticArmInterface::buildLimitsPayload() const
+{
+  // param_init of "S" (E10, DS10): the minimums as an "M" payload, FS, the maximums.
+  // Taken from the URDF (info_.limits), the single source of truth for the joint limits (D5).
+  std::vector<double> mins;
+  std::vector<double> maxs;
+  std::string text;
+  for (const auto &joint : info_.joints)
+  {
+    const auto it = info_.limits.find(joint.name);
+    if (it == info_.limits.end() || !it->second.has_position_limits)
+    {
+      RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                         "No position limits for joint " << joint.name
+                             << ": S sent without limits, the ESP32 keeps its own");
+      return "";
+    }
+    mins.push_back(it->second.min_position);
+    maxs.push_back(it->second.max_position);
+    text += " " + joint.name + " [" + std::to_string(mins.back()) + ", " +
+            std::to_string(maxs.back()) + "]";
+  }
+  RCLCPP_INFO_STREAM(rclcpp::get_logger("RoboticArmInterface"), "Joint limits sent in S (rad):" << text);
+  return buildMPayload(mins) + kFieldSeparator + buildMPayload(maxs);
 }
 
 
@@ -405,7 +499,11 @@ hardware_interface::return_type RoboticArmInterface::read(const rclcpp::Time &ti
         }
         break;
       case 'E':
-        RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"), "ESP32 event: " << payload);
+        // Two-digit code (DS8); syncWithArm() waits for it as the S reply
+        e_code_ = payload;
+        e_received_ = true;
+        RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),
+                           "ESP32 event E " << payload << ": " << describeEvent(payload));
         break;
       default:
         RCLCPP_WARN_STREAM(rclcpp::get_logger("RoboticArmInterface"),

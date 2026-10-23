@@ -38,8 +38,11 @@ private:
   static std::string buildFrame(char cid, const std::string &payload);
   // "M" payload: joint targets in mrad, fixed-width signed, separated by FS
   std::string buildMPayload(const std::vector<double> &positions_rad) const;
-  // Waits for the first "M" feedback so states and commands start at the real pose
-  bool syncWithArm();
+  // "S" param_init: URDF joint limits (info_.limits), mins then maxs, in "M" format
+  std::string buildLimitsPayload() const;
+  // Probes until the first "M" feedback, then sends "S" and waits for its reply ("M" with
+  // the pose, or "E"). States and commands start at that pose. On failure, error says why
+  bool syncWithArm(std::string &error);
 
   LibSerial::SerialPort serial_port_;
   std::string port_;
@@ -49,6 +52,9 @@ private:
   std::string rx_buffer_;
   // Set by read() when a valid "M" feedback updated position_states_
   bool m_received_ = false;
+  // Set by read() when an "E" arrived, with its code (two digits)
+  bool e_received_ = false;
+  std::string e_code_;
 };
 }  // namespace robotic_arm_controller
 
