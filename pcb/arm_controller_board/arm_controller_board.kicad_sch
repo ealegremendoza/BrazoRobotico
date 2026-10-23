@@ -2406,7 +2406,7 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "Pot gripper (joint 6) + navegación)\nConexión:\n1 <-> 1\n2 <-> 2 Medio\n3 <-> 3"
+	(text "Pot gripper (joint 6) + navegación\nConexión:\n1 <-> 1\n2 <-> 2 Medio\n3 <-> 3"
 		(exclude_from_sim no)
 		(at 242.062 140.97 0)
 		(effects
@@ -2417,7 +2417,7 @@
 		)
 		(uuid "30fbe1df-8754-4259-a6f1-f65efa101380")
 	)
-	(text "HW-221: En el módulo, OE está conectado a VA;"
+	(text "HW-221: En el módulo, OE está conectado a VA."
 		(exclude_from_sim no)
 		(at 179.324 76.2 0)
 		(effects
@@ -2461,9 +2461,9 @@
 		)
 		(uuid "bf738f0e-8d07-4d83-9205-b79b2e4e9ae4")
 	)
-	(text "Driver para servos ST3215 (Waveshare A): \nConexión:\n1 <-> TX\n2 <-> RX\n3 <-> GND\n\nTiene su propia fuente de 12V.\nSolo se comparte GND.\nEl jumper del driver tiene que ir en la posición A - UART."
+	(text "Driver para servos STS3215 (Waveshare A): \nConexión:\n1 <-> TX\n2 <-> RX\n3 <-> GND\n\nTiene su propia fuente de 12V.\nSolo se comparte GND.\nEl jumper del driver tiene que ir en la posición A - UART.\n\nLa alimentación del driver va a través de una parada de emergencia externa. \nNo pasa por esta placa."
 		(exclude_from_sim no)
-		(at 83.058 187.96 0)
+		(at 82.55 191.008 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2496,7 +2496,7 @@
 	)
 	(text "Consola (LOGS ESP32)\nConectar:\n1 <-> GND de CP2102\n2 <-> RXD de CP2102\n3 <-> TXD de CP2102\n"
 		(exclude_from_sim no)
-		(at 45.72 179.832 0)
+		(at 43.434 176.53 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -2781,7 +2781,7 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 156.21) (xy 50.8 156.21)
+			(xy 58.42 156.21) (xy 40.64 156.21)
 		)
 		(stroke
 			(width 0)
@@ -3081,6 +3081,16 @@
 	)
 	(wire
 		(pts
+			(xy 255.27 50.8) (xy 261.62 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "72748970-1598-4190-b935-291297b8267d")
+	)
+	(wire
+		(pts
 			(xy 233.68 96.52) (xy 226.06 96.52)
 		)
 		(stroke
@@ -3211,7 +3221,7 @@
 	)
 	(wire
 		(pts
-			(xy 99.06 161.29) (xy 91.44 161.29)
+			(xy 99.06 161.29) (xy 88.9 161.29)
 		)
 		(stroke
 			(width 0)
@@ -3258,16 +3268,6 @@
 			(type default)
 		)
 		(uuid "a4b8c278-e758-4ca5-8e3b-e3e54f0a3ee2")
-	)
-	(wire
-		(pts
-			(xy 261.62 50.8) (xy 254 50.8)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a9928c1f-0cd3-4c07-b7a3-5093cb7b5622")
 	)
 	(wire
 		(pts
@@ -3381,6 +3381,16 @@
 	)
 	(wire
 		(pts
+			(xy 255.27 43.18) (xy 255.27 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c3058e36-72a0-42af-8898-822802af43a4")
+	)
+	(wire
+		(pts
 			(xy 261.62 53.34) (xy 256.54 53.34)
 		)
 		(stroke
@@ -3471,7 +3481,7 @@
 	)
 	(wire
 		(pts
-			(xy 261.62 48.26) (xy 254 48.26)
+			(xy 261.62 48.26) (xy 240.03 48.26)
 		)
 		(stroke
 			(width 0)
@@ -4045,7 +4055,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "08130756-50eb-4c99-808a-60a65466a357")
-		(property "Reference" "J3"
+		(property "Reference" "J5"
 			(at 238.76 111.76 0)
 			(effects
 				(font
@@ -4118,7 +4128,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J3")
+					(reference "J5")
 					(unit 1)
 				)
 			)
@@ -4133,7 +4143,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "0a06a263-4ac5-42c5-997a-7b43d895e7d1")
-		(property "Reference" "#PWR020"
+		(property "Reference" "#PWR018"
 			(at 133.35 106.68 0)
 			(effects
 				(font
@@ -4192,7 +4202,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR020")
+					(reference "#PWR018")
 					(unit 1)
 				)
 			)
@@ -4207,7 +4217,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "1c73662f-38d2-48bc-9eae-4e3124ae5c0d")
-		(property "Reference" "#PWR08"
+		(property "Reference" "#PWR09"
 			(at 185.42 69.85 0)
 			(effects
 				(font
@@ -4266,7 +4276,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR08")
+					(reference "#PWR09")
 					(unit 1)
 				)
 			)
@@ -4368,7 +4378,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "2a21f0f2-8d6b-448b-9644-a43f1c94692b")
-		(property "Reference" "#PWR18"
+		(property "Reference" "#PWR025"
 			(at 43.18 138.43 0)
 			(effects
 				(font
@@ -4427,7 +4437,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR18")
+					(reference "#PWR025")
 					(unit 1)
 				)
 			)
@@ -4442,7 +4452,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "2c864818-d5c6-4077-bd4e-0067a4877cce")
-		(property "Reference" "#PWR019"
+		(property "Reference" "#PWR026"
 			(at 87.63 138.43 0)
 			(effects
 				(font
@@ -4501,7 +4511,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR019")
+					(reference "#PWR026")
 					(unit 1)
 				)
 			)
@@ -4516,7 +4526,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3033d919-db82-4122-9dc0-a2752f2bdda3")
-		(property "Reference" "#PWR027"
+		(property "Reference" "#PWR029"
 			(at 232.41 138.43 0)
 			(effects
 				(font
@@ -4576,7 +4586,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR027")
+					(reference "#PWR029")
 					(unit 1)
 				)
 			)
@@ -4584,15 +4594,15 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 254 48.26 270)
+		(at 240.03 48.26 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "33059e85-c4e9-4d87-a73c-c0efad359810")
-		(property "Reference" "#PWR10"
-			(at 254 54.61 0)
+		(property "Reference" "#PWR07"
+			(at 246.38 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4601,7 +4611,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 250.7 48.26 90)
+			(at 240.03 51.562 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4610,7 +4620,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 254 48.26 0)
+			(at 240.03 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4619,7 +4629,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 254 48.26 0)
+			(at 240.03 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4628,7 +4638,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 254 48.26 0)
+			(at 240.03 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4637,7 +4647,7 @@
 			)
 		)
 		(property "ki_keywords" "global power"
-			(at 254 48.26 0)
+			(at 240.03 48.26 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4651,7 +4661,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR10")
+					(reference "#PWR07")
 					(unit 1)
 				)
 			)
@@ -4666,7 +4676,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "338666ae-67b0-43ae-9445-2fa4c3084207")
-		(property "Reference" "J6"
+		(property "Reference" "J7"
 			(at 100.33 119.38 0)
 			(effects
 				(font
@@ -4736,7 +4746,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J6")
+					(reference "J7")
 					(unit 1)
 				)
 			)
@@ -4751,7 +4761,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "361ffc26-d6a0-4743-86a0-0a165a5835ba")
-		(property "Reference" "#PWR14"
+		(property "Reference" "#PWR022"
 			(at 232.41 119.38 0)
 			(effects
 				(font
@@ -4811,7 +4821,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR14")
+					(reference "#PWR022")
 					(unit 1)
 				)
 			)
@@ -4819,15 +4829,15 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 50.8 156.21 270)
+		(at 40.64 156.21 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "38ac5d1b-ba21-4151-b131-0bc33002f38e")
-		(property "Reference" "#PWR16"
-			(at 50.8 162.56 0)
+		(property "Reference" "#PWR030"
+			(at 46.99 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4836,7 +4846,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 47.5 156.21 90)
+			(at 42.164 160.274 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4845,7 +4855,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 50.8 156.21 0)
+			(at 40.64 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4854,7 +4864,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 50.8 156.21 0)
+			(at 40.64 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4863,7 +4873,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 50.8 156.21 0)
+			(at 40.64 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4872,7 +4882,7 @@
 			)
 		)
 		(property "ki_keywords" "global power"
-			(at 50.8 156.21 0)
+			(at 40.64 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4886,7 +4896,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR16")
+					(reference "#PWR030")
 					(unit 1)
 				)
 			)
@@ -4901,7 +4911,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3aff084e-58dd-45f3-b7d0-edcb049240ba")
-		(property "Reference" "#PWR17"
+		(property "Reference" "#PWR016"
 			(at 43.18 106.68 0)
 			(effects
 				(font
@@ -4960,7 +4970,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR17")
+					(reference "#PWR016")
 					(unit 1)
 				)
 			)
@@ -4975,7 +4985,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "49efc8e6-2123-4323-9a40-03793fe85bec")
-		(property "Reference" "#PWR023"
+		(property "Reference" "#PWR021"
 			(at 184.15 119.38 0)
 			(effects
 				(font
@@ -5035,7 +5045,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR023")
+					(reference "#PWR021")
 					(unit 1)
 				)
 			)
@@ -5050,7 +5060,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "4cd0ed17-b33c-4e56-8874-75d8c91183be")
-		(property "Reference" "J4"
+		(property "Reference" "J6"
 			(at 55.88 119.38 0)
 			(effects
 				(font
@@ -5120,7 +5130,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J4")
+					(reference "J6")
 					(unit 1)
 				)
 			)
@@ -5128,15 +5138,15 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 91.44 161.29 270)
+		(at 88.9 161.29 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "4dcf6975-9f6c-450f-9165-1184da164279")
-		(property "Reference" "#PWR12"
-			(at 91.44 167.64 0)
+		(property "Reference" "#PWR031"
+			(at 95.25 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5145,7 +5155,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 88.14 161.29 90)
+			(at 88.9 164.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5154,7 +5164,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 91.44 161.29 0)
+			(at 88.9 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5163,7 +5173,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 91.44 161.29 0)
+			(at 88.9 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5172,7 +5182,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 91.44 161.29 0)
+			(at 88.9 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5181,7 +5191,7 @@
 			)
 		)
 		(property "ki_keywords" "global power"
-			(at 91.44 161.29 0)
+			(at 88.9 161.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5195,7 +5205,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR12")
+					(reference "#PWR031")
 					(unit 1)
 				)
 			)
@@ -5210,7 +5220,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "5ce017b6-a186-4c21-a49f-f5c812279bc3")
-		(property "Reference" "J2"
+		(property "Reference" "J1"
 			(at 266.7 45.72 0)
 			(effects
 				(font
@@ -5286,7 +5296,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J2")
+					(reference "J1")
 					(unit 1)
 				)
 			)
@@ -5386,7 +5396,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "5d965c18-6682-401e-aefc-dcac655102b5")
-		(property "Reference" "#PWR015"
+		(property "Reference" "#PWR017"
 			(at 87.63 106.68 0)
 			(effects
 				(font
@@ -5445,7 +5455,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR015")
+					(reference "#PWR017")
 					(unit 1)
 				)
 			)
@@ -5545,7 +5555,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "6502f8ea-9061-447f-a50e-91921a4f67a2")
-		(property "Reference" "#PWR024"
+		(property "Reference" "#PWR023"
 			(at 173.99 130.81 0)
 			(effects
 				(font
@@ -5605,7 +5615,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR024")
+					(reference "#PWR023")
 					(unit 1)
 				)
 			)
@@ -5620,7 +5630,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "65abc878-94e8-4f9f-bdc4-fab52e589d9c")
-		(property "Reference" "#PWR07"
+		(property "Reference" "#PWR04"
 			(at 215.9 46.99 0)
 			(effects
 				(font
@@ -5679,7 +5689,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR07")
+					(reference "#PWR04")
 					(unit 1)
 				)
 			)
@@ -5768,7 +5778,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "75935213-ef61-43a2-9062-091f54c8fdb8")
-		(property "Reference" "J1"
+		(property "Reference" "J12"
 			(at 104.14 153.67 0)
 			(effects
 				(font
@@ -5841,7 +5851,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J1")
+					(reference "J12")
 					(unit 1)
 				)
 			)
@@ -5849,15 +5859,15 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 254 50.8 90)
+		(at 255.27 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "76cda1d4-6d7d-47a5-affc-50dd37a112db")
-		(property "Reference" "#PWR11"
-			(at 254 54.61 0)
+		(property "Reference" "#PWR05"
+			(at 251.46 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5866,7 +5876,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 249.7 50.8 270)
+			(at 255.27 38.88 270)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5875,7 +5885,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 254 50.8 0)
+			(at 255.27 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5884,7 +5894,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 254 50.8 0)
+			(at 255.27 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5893,7 +5903,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 254 50.8 0)
+			(at 255.27 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5902,7 +5912,7 @@
 			)
 		)
 		(property "ki_keywords" "global power"
-			(at 254 50.8 0)
+			(at 255.27 43.18 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5916,7 +5926,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR11")
+					(reference "#PWR05")
 					(unit 1)
 				)
 			)
@@ -5931,7 +5941,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "7d1f8f99-0668-4da8-9d29-64a6a9057141")
-		(property "Reference" "#PWR030"
+		(property "Reference" "#PWR012"
 			(at 222.25 91.44 0)
 			(effects
 				(font
@@ -5991,7 +6001,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR030")
+					(reference "#PWR012")
 					(unit 1)
 				)
 			)
@@ -6006,7 +6016,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "82259f11-634f-4f2e-bbc4-e8fad44b21ae")
-		(property "Reference" "J12"
+		(property "Reference" "J2"
 			(at 238.76 91.44 0)
 			(effects
 				(font
@@ -6079,7 +6089,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J12")
+					(reference "J2")
 					(unit 1)
 				)
 			)
@@ -6094,7 +6104,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "87d46acc-7a10-4336-a076-228ca24fc6df")
-		(property "Reference" "#PWR03"
+		(property "Reference" "#PWR011"
 			(at 46.99 82.55 0)
 			(effects
 				(font
@@ -6153,7 +6163,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR03")
+					(reference "#PWR011")
 					(unit 1)
 				)
 			)
@@ -6168,7 +6178,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "892195b0-1b22-4a76-a031-9d5eb0a5413e")
-		(property "Reference" "#PWR09"
+		(property "Reference" "#PWR010"
 			(at 215.9 72.39 0)
 			(effects
 				(font
@@ -6227,7 +6237,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR09")
+					(reference "#PWR010")
 					(unit 1)
 				)
 			)
@@ -6242,7 +6252,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "920f3f1f-e519-472d-ab41-06518f3e10f3")
-		(property "Reference" "#PWR022"
+		(property "Reference" "#PWR019"
 			(at 173.99 111.76 0)
 			(effects
 				(font
@@ -6302,7 +6312,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR022")
+					(reference "#PWR019")
 					(unit 1)
 				)
 			)
@@ -6317,7 +6327,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "963cbf37-d007-48ec-8261-2903edce70b9")
-		(property "Reference" "A1"
+		(property "Reference" "A2"
 			(at 53.594 27.686 0)
 			(effects
 				(font
@@ -6477,7 +6487,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "A1")
+					(reference "A2")
 					(unit 1)
 				)
 			)
@@ -6492,7 +6502,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "97c0b75a-0385-4cf0-8364-507f826d7721")
-		(property "Reference" "#PWR06"
+		(property "Reference" "#PWR03"
 			(at 185.42 46.99 0)
 			(effects
 				(font
@@ -6551,7 +6561,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR06")
+					(reference "#PWR03")
 					(unit 1)
 				)
 			)
@@ -6566,7 +6576,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "9ad0f58d-d8e8-4064-992f-a718eee3b238")
-		(property "Reference" "#PWR031"
+		(property "Reference" "#PWR014"
 			(at 232.41 99.06 0)
 			(effects
 				(font
@@ -6626,7 +6636,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR031")
+					(reference "#PWR014")
 					(unit 1)
 				)
 			)
@@ -6816,7 +6826,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "a81e8750-98fe-411f-bf86-1a6368d0500e")
-		(property "Reference" "A2"
+		(property "Reference" "A1"
 			(at 193.04 38.1 0)
 			(effects
 				(font
@@ -6922,7 +6932,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "A2")
+					(reference "A1")
 					(unit 1)
 				)
 			)
@@ -6937,7 +6947,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "c4fa1817-2025-4825-85e7-196a7586e6ef")
-		(property "Reference" "#PWR13"
+		(property "Reference" "#PWR020"
 			(at 222.25 111.76 0)
 			(effects
 				(font
@@ -6997,7 +7007,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR13")
+					(reference "#PWR020")
 					(unit 1)
 				)
 			)
@@ -7012,7 +7022,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "c7dee3a8-f766-4d1c-b4fb-3f7361b8b6a6")
-		(property "Reference" "#PWR026"
+		(property "Reference" "#PWR024"
 			(at 222.25 130.81 0)
 			(effects
 				(font
@@ -7072,7 +7082,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR026")
+					(reference "#PWR024")
 					(unit 1)
 				)
 			)
@@ -7087,7 +7097,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "ceea555d-6615-4529-bdbf-d5d22b157184")
-		(property "Reference" "#PWR04"
+		(property "Reference" "#PWR02"
 			(at 120.65 39.37 0)
 			(effects
 				(font
@@ -7146,7 +7156,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR04")
+					(reference "#PWR02")
 					(unit 1)
 				)
 			)
@@ -7249,7 +7259,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "d74ea8ca-a2d0-47ee-bda4-fe11d488ea3e")
-		(property "Reference" "J7"
+		(property "Reference" "J8"
 			(at 146.05 119.38 0)
 			(effects
 				(font
@@ -7319,7 +7329,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J7")
+					(reference "J8")
 					(unit 1)
 				)
 			)
@@ -7334,7 +7344,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "db96a716-e430-4469-ae3f-b6dcd7181c7a")
-		(property "Reference" "#PWR05"
+		(property "Reference" "#PWR06"
 			(at 123.19 54.61 0)
 			(effects
 				(font
@@ -7393,7 +7403,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR05")
+					(reference "#PWR06")
 					(unit 1)
 				)
 			)
@@ -7408,7 +7418,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "dec57e43-3407-4d4e-baff-4e771e2c2934")
-		(property "Reference" "#PWR028"
+		(property "Reference" "#PWR013"
 			(at 173.99 92.71 0)
 			(effects
 				(font
@@ -7468,7 +7478,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR028")
+					(reference "#PWR013")
 					(unit 1)
 				)
 			)
@@ -7549,7 +7559,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "e18fe7a7-e52f-455a-abc9-83af0b214712")
-		(property "Reference" "#PWR025"
+		(property "Reference" "#PWR028"
 			(at 184.15 138.43 0)
 			(effects
 				(font
@@ -7609,7 +7619,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR025")
+					(reference "#PWR028")
 					(unit 1)
 				)
 			)
@@ -7624,7 +7634,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "e2476b74-97ec-415d-9b43-504b6054e0c1")
-		(property "Reference" "#PWR02"
+		(property "Reference" "#PWR08"
 			(at 46.99 72.39 0)
 			(effects
 				(font
@@ -7683,7 +7693,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR02")
+					(reference "#PWR08")
 					(unit 1)
 				)
 			)
@@ -7783,7 +7793,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "e7d1c879-cfba-42db-a5ed-16d0210cd36c")
-		(property "Reference" "#PWR021"
+		(property "Reference" "#PWR027"
 			(at 133.35 138.43 0)
 			(effects
 				(font
@@ -7842,7 +7852,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR021")
+					(reference "#PWR027")
 					(unit 1)
 				)
 			)
@@ -7857,7 +7867,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f0e64ad7-48bc-4f17-9105-6a2a9d43af8d")
-		(property "Reference" "J8"
+		(property "Reference" "J4"
 			(at 190.5 111.76 0)
 			(effects
 				(font
@@ -7930,7 +7940,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J8")
+					(reference "J4")
 					(unit 1)
 				)
 			)
@@ -7945,7 +7955,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f7353394-a5a5-48af-accf-ac34a5e0ed16")
-		(property "Reference" "J5"
+		(property "Reference" "J11"
 			(at 63.5 153.67 0)
 			(effects
 				(font
@@ -8018,7 +8028,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J5")
+					(reference "J11")
 					(unit 1)
 				)
 			)
@@ -8033,7 +8043,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "f96b5ded-491b-4b6a-b55c-3afbb2e73a6f")
-		(property "Reference" "#PWR029"
+		(property "Reference" "#PWR015"
 			(at 184.15 100.33 0)
 			(effects
 				(font
@@ -8093,7 +8103,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "#PWR029")
+					(reference "#PWR015")
 					(unit 1)
 				)
 			)
@@ -8108,7 +8118,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "fde64d39-4ceb-4210-876d-794a39b8ca48")
-		(property "Reference" "J11"
+		(property "Reference" "J3"
 			(at 190.5 92.71 0)
 			(effects
 				(font
@@ -8181,7 +8191,7 @@
 		(instances
 			(project "arm_controller_board"
 				(path "/15032cd0-160d-42cb-93e3-2fc4f4993649"
-					(reference "J11")
+					(reference "J3")
 					(unit 1)
 				)
 			)
