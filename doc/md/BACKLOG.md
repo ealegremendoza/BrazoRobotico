@@ -41,6 +41,7 @@ _Última actualización: 2026-10-23_
 - [ ] **[R14]** (Depende de R08) Alinear los límites de `robotic_arm_ros2_control.xacro` (`<param name="min">`/`max` de cada joint) con los del URDF corregidos en `[R08]` (hoy repiten los valores viejos, p. ej. `elbow_flex` ±1.69) — ver `doc/md/bitacora-R08-brazo-real.md`
 - [ ] **[R15]** (Depende de R08) Recalibración más precisa del brazo: con la pose a ojo quedaron `wrist_roll` ~8° y `shoulder_pan` ~5° corridos del cero del URDF. Usar una referencia mejor (plantilla, escuadra, marcas en las piezas); si es un solo joint, `calibrate_servo_offset.py` corriendo también los límites de la EEPROM — ver `doc/md/bitacora-R08-brazo-real.md`
 - [ ] **[R16]** (Depende de R13) Regla udev para el ESP32 (`/dev/robotic_arm`, por número de serie USB: el adaptador CP2102 tiene el mismo VID:PID que la DevKitC WROOM) y default del argumento `port` a ese nombre, para la computadora integrada
+- [ ] **[R17]** (Depende de E10) Investigar los `Overrun detected` del `controller_manager` con el brazo real: a veces el `read()` del plugin tarda ~35 ms esperando la respuesta `M` del ESP32 y el ciclo es de 20 ms (50 Hz), así que se pierden 2 ciclos. En la prueba de E10 pasó 2 veces en ~7 minutos. Ver si es la latencia del bus de servos en el ESP32, el timeout de lectura del plugin o el puerto serie de la PC
 
 ## 📌 Otros
 
