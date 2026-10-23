@@ -253,8 +253,8 @@ static void on_pc_frame(char cid, const uint8_t *payload, size_t payload_len, vo
         handle_m_frame(payload, payload_len);
         break;
     case 'S':
-        // Start (R03). TODO(E09): answer with E "initialized" and handle the rest of the states.
-        if (arm_state_start(&s_arm)) {
+        // Start (R03). The reply (M or E) and the limits in param_init come with the bus task.
+        if (arm_state_on_start(&s_arm, ARM_S_PARAMS_EMPTY, true).state_changed) {
             ESP_LOGI(TAG, "S: OPERATING, M frames now move the servos");
         }
         break;
@@ -282,7 +282,7 @@ static void pc_rx_task(void *arg)
     // static: the parser holds a 133-byte buffer, keep it off the task stack.
     static frame_parser_t parser;
     frame_parser_init(&parser, on_pc_frame, NULL);
-    arm_state_init(&s_arm, PC_LINK_TIMEOUT_MS * 1000LL);
+    arm_state_init(&s_arm, PC_LINK_TIMEOUT_MS * 1000LL, M_PAYLOAD_JOINTS);
 
     uint8_t chunk[PC_RX_CHUNK_SIZE];
     while (1) {
