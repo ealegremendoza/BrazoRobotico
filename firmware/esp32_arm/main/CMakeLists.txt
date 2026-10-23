@@ -5,4 +5,5 @@ idf_component_register(SRCS "esp32_arm.c"
                             "servo_bus.c"
                             "arm_state.c"
                             "arm_limits.c"
+                            "arm_bus.c"
                     INCLUDE_DIRS ".")

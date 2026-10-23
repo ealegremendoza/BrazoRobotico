@@ -1,6 +1,12 @@
 /**
  * @file esp32_arm.c
- * @brief Firmware entry point: UART setup, PC receive task and M command handling.
+ * @brief Firmware entry point: UART setup and the PC receive task (parser + forward).
+ *
+ * Tasks (doc/md/bitacora-E10-panel-lcd.md, DS18 #1):
+ *
+ * - bus (priority 11, arm_bus.c): only owner of the servo bus (UART2) and of arm_state;
+ *   answers the PC on UART0.
+ * - pc_rx (priority 10): reads UART0, reassembles frames and forwards M and S to the bus.
  */
 
 #include <stdio.h>
@@ -13,12 +19,11 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
-#include "arm_state.h"
+#include "arm_bus.h"
+#include "arm_limits.h"
 #include "board_pins.h"
 #include "frame_parser.h"
 #include "m_payload.h"
-#include "servo_bus.h"
-#include "servo_units.h"
 
 // RX ring buffers must be larger than the 128-byte hardware FIFO.
 // The PC buffer holds several frames: an M frame is 44 bytes, a D frame up to ~130.
@@ -29,26 +34,6 @@
 #define PC_RX_CHUNK_SIZE 64
 #define PC_RX_TASK_STACK_SIZE 4096
 #define PC_RX_TASK_PRIORITY 10
-
-// Max wait for all servos to answer a SYNC_READ. They answer in < 1 ms at 1 Mbaud;
-// on timeout no M reply is sent and the PC sees a missing answer for that cycle.
-#define SERVO_READ_TIMEOUT_MS 10
-// Room for an echo of our own SYNC_WRITE + SYNC_READ (if the bus adapter echoes TX)
-// plus every servo's status packet.
-#define SERVO_RX_BUF_SIZE                                        \
-    (SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS) +           \
-     SERVO_BUS_SYNC_READ_SIZE(M_PAYLOAD_JOINTS) + M_PAYLOAD_JOINTS * SERVO_BUS_POS_STATUS_SIZE)
-
-// Link watchdog: with no valid frame from the PC for this long, go back to STOPPED.
-// The ros2_control plugin waits longer than this after opening the port, so it
-// always starts against a STOPPED ESP32 even when opening the port does not reset it.
-#define PC_LINK_TIMEOUT_MS 500
-
-/** STOPPED / OPERATING + link watchdog (see arm_state.h). Owned by pc_rx_task. */
-static arm_state_t s_arm;
-
-/** Servo bus IDs in M payload order: joint j drives servo j + 1 (shoulder_pan = 1 .. gripper = 6). */
-static const uint8_t SERVO_IDS[M_PAYLOAD_JOINTS] = {1, 2, 3, 4, 5, 6};
 
 static const char *TAG = "ESP32-ARM";
 
@@ -98,140 +83,11 @@ static void init_uarts(void)
 }
 
 /**
- * @brief Reads every servo's present position with one SYNC_READ.
+ * @brief frame_parser callback: decodes M and S and forwards them to the bus task.
  *
- * Collects the answers until all servos replied or SERVO_READ_TIMEOUT_MS passes.
- * Reads SERVO_BUS_POS_STATUS_SIZE bytes per call after the first batch, so each
- * call returns as soon as the next answer arrives instead of waiting for a full buffer.
- *
- * Timeouts are in FreeRTOS ticks (10 ms at CONFIG_FREERTOS_HZ=100). A 1-tick timeout
- * ends at the next tick interrupt, anywhere from 0 to 10 ms later: with only
- * pdMS_TO_TICKS(10) the read sometimes gave up before the servos (~1.5 ms) answered
- * ("0 bytes received", ~14% of cycles). Each wait adds one tick, so it lasts at
- * least the remaining time; the deadline itself is measured with esp_timer.
- *
- * @param positions Output: present position of each servo in counts, untouched on failure.
- * @return true if every servo answered in time, false otherwise.
- */
-static bool read_servo_positions(int32_t positions[M_PAYLOAD_JOINTS])
-{
-    uint8_t request[SERVO_BUS_SYNC_READ_SIZE(M_PAYLOAD_JOINTS)];
-    size_t request_size = servo_bus_build_sync_read_pos(request, sizeof(request), SERVO_IDS,
-                                                        M_PAYLOAD_JOINTS);
-    uart_write_bytes(SERVOS_UART_PORT, request, request_size);
-
-    static uint8_t last_errors = 0;
-    uint8_t rx[SERVO_RX_BUF_SIZE];
-    size_t rx_len = 0;
-    size_t want = M_PAYLOAD_JOINTS * SERVO_BUS_POS_STATUS_SIZE;  // no echo: exactly the answers
-    int64_t deadline_us = esp_timer_get_time() + SERVO_READ_TIMEOUT_MS * 1000;
-
-    while (rx_len < sizeof(rx)) {
-        int64_t remaining_us = deadline_us - esp_timer_get_time();
-        if (remaining_us <= 0) {
-            break;
-        }
-        // Round up to whole ms, then add one tick: see the tick granularity note above.
-        TickType_t wait = pdMS_TO_TICKS((uint32_t)((remaining_us + 999) / 1000)) + 1;
-
-        size_t space = sizeof(rx) - rx_len;
-        int n = uart_read_bytes(SERVOS_UART_PORT, rx + rx_len, want < space ? want : space, wait);
-        if (n <= 0) {
-            continue;  // nothing arrived in this wait: the deadline check ends the loop
-        }
-        rx_len += (size_t)n;
-
-        uint8_t errors;
-        if (servo_bus_parse_positions(rx, rx_len, SERVO_IDS, M_PAYLOAD_JOINTS, positions, &errors)) {
-            if (errors != last_errors) {
-                // Only log changes: at 50 Hz a persistent error would flood the console.
-                ESP_LOGW(TAG, "Servo status error flags: 0x%02x", errors);
-                last_errors = errors;
-            }
-            return true;
-        }
-        want = SERVO_BUS_POS_STATUS_SIZE;  // still missing answers (or an echo arrived first)
-    }
-
-    ESP_LOGW(TAG, "SYNC_READ: not every servo answered (%u bytes received)", (unsigned)rx_len);
-    return false;
-}
-
-/**
- * @brief Sends the M feedback frame with the present joint angles to the PC.
- *
- * @param counts Present position of each servo, in counts.
- */
-static void send_m_feedback(const int32_t counts[M_PAYLOAD_JOINTS])
-{
-    int32_t mrad[M_PAYLOAD_JOINTS];
-    for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
-        mrad[j] = counts_to_mrad(counts[j]);
-    }
-
-    uint8_t payload[M_PAYLOAD_SIZE];
-    size_t payload_len = m_payload_format(payload, sizeof(payload), mrad);
-
-    uint8_t frame[FRAME_MAX_SIZE];
-    size_t frame_size = frame_build(frame, sizeof(frame), 'M', payload, payload_len);
-    uart_write_bytes(PC_UART_PORT, frame, frame_size);
-
-    ESP_LOGI(TAG, "Feedback: counts [%ld %ld %ld %ld %ld %ld] -> mrad [%ld %ld %ld %ld %ld %ld]",
-             (long)counts[0], (long)counts[1], (long)counts[2], (long)counts[3], (long)counts[4],
-             (long)counts[5], (long)mrad[0], (long)mrad[1], (long)mrad[2], (long)mrad[3],
-             (long)mrad[4], (long)mrad[5]);
-}
-
-/**
- * @brief Handles an M frame: moves the servos (SYNC_WRITE, only when OPERATING),
- *        reads where they are (SYNC_READ) and answers the PC with an M feedback frame.
- *
- * @param payload     Payload bytes (between FS and ETX).
- * @param payload_len Number of bytes in payload.
- */
-static void handle_m_frame(const uint8_t *payload, size_t payload_len)
-{
-    int32_t mrad[M_PAYLOAD_JOINTS];
-    if (!m_payload_parse(payload, payload_len, mrad)) {
-        ESP_LOGW(TAG, "M: malformed payload (%u bytes), frame ignored", (unsigned)payload_len);
-        return;
-    }
-
-    // Same joint order as robotic_arm_ros2_control.xacro (see SERVO_IDS).
-    servo_target_t targets[M_PAYLOAD_JOINTS];
-    for (size_t j = 0; j < M_PAYLOAD_JOINTS; j++) {
-        targets[j] = (servo_target_t){
-            .id = SERVO_IDS[j],
-            .position = (uint16_t)mrad_to_counts(mrad[j]),  // always 0..4095
-            .speed = CONFIG_ARM_SERVO_MOVE_SPEED,
-            .acc = CONFIG_ARM_SERVO_MOVE_ACC,
-        };
-    }
-
-    uart_flush_input(SERVOS_UART_PORT);  // drop stale bytes: only this cycle's answers count
-    if (arm_state_can_move(&s_arm)) {
-        uint8_t packet[SERVO_BUS_SYNC_WRITE_POS_SIZE(M_PAYLOAD_JOINTS)];
-        size_t packet_size = servo_bus_build_sync_write_pos(packet, sizeof(packet), targets,
-                                                            M_PAYLOAD_JOINTS);
-        uart_write_bytes(SERVOS_UART_PORT, packet, packet_size);
-    }
-
-    ESP_LOGI(TAG, "M (%s): mrad [%ld %ld %ld %ld %ld %ld] -> counts [%u %u %u %u %u %u]",
-             arm_state_can_move(&s_arm) ? "move" : "stopped, read only", (long)mrad[0],
-             (long)mrad[1], (long)mrad[2], (long)mrad[3], (long)mrad[4], (long)mrad[5],
-             targets[0].position, targets[1].position, targets[2].position, targets[3].position,
-             targets[4].position, targets[5].position);
-
-    // Request/response (R09): one M feedback per M command. No answer if the
-    // servos did not reply; the PC detects the missing frame.
-    int32_t present[M_PAYLOAD_JOINTS];
-    if (read_servo_positions(present)) {
-        send_m_feedback(present);
-    }
-}
-
-/**
- * @brief frame_parser callback: dispatches each valid frame by its command id.
+ * pc_rx only parses (DS3): the bus task owns the servo bus and arm_state, applies the link
+ * watchdog with the arrival time and answers the PC. Requests are queued without waiting:
+ * with the queue full the frame is dropped and logged (the PC sends again in 20 ms).
  *
  * @param cid         Command id.
  * @param payload     Payload bytes, only valid during the call.
@@ -242,27 +98,29 @@ static void on_pc_frame(char cid, const uint8_t *payload, size_t payload_len, vo
 {
     (void)ctx;
 
-    // Link watchdog: a long silence means the PC went away (plugin stopped, cable
-    // unplugged). Never resume moving on stale targets: require a new S.
-    if (arm_state_on_frame(&s_arm, esp_timer_get_time())) {
-        ESP_LOGW(TAG, "No frame from the PC for > %d ms: STOPPED (waiting for S)", PC_LINK_TIMEOUT_MS);
-    }
-
+    arm_bus_request_t req = {.rx_us = esp_timer_get_time()};
     switch (cid) {
     case 'M':
-        handle_m_frame(payload, payload_len);
+        if (!m_payload_parse(payload, payload_len, req.m_mrad)) {
+            ESP_LOGW(TAG, "M: malformed payload (%u bytes), frame ignored", (unsigned)payload_len);
+            return;
+        }
+        req.type = ARM_BUS_REQ_M;
         break;
     case 'S':
-        // Start (R03). The reply (M or E) and the limits in param_init come with the bus task.
-        if (arm_state_on_start(&s_arm, ARM_S_PARAMS_EMPTY, true).state_changed) {
-            ESP_LOGI(TAG, "S: OPERATING, M frames now move the servos");
+        // Start (R03): param_init = joint limits (E10, DS10); the bus task decides (DS9).
+        req.type = ARM_BUS_REQ_S;
+        req.s.params = arm_limits_parse(payload, payload_len, &req.s.limits);
+        if (req.s.params == ARM_LIMITS_INVALID) {
+            ESP_LOGW(TAG, "S: invalid limits in param_init (%u bytes)", (unsigned)payload_len);
         }
         break;
     default:
         // D and the rest arrive with E09.
         ESP_LOGW(TAG, "Unhandled CID '%c' (%u payload bytes)", cid, (unsigned)payload_len);
-        break;
+        return;
     }
+    arm_bus_send(&req, 0);
 }
 
 /**
@@ -282,7 +140,6 @@ static void pc_rx_task(void *arg)
     // static: the parser holds a 133-byte buffer, keep it off the task stack.
     static frame_parser_t parser;
     frame_parser_init(&parser, on_pc_frame, NULL);
-    arm_state_init(&s_arm, PC_LINK_TIMEOUT_MS * 1000LL, M_PAYLOAD_JOINTS);
 
     uint8_t chunk[PC_RX_CHUNK_SIZE];
     while (1) {
@@ -308,10 +165,12 @@ static void pc_rx_task(void *arg)
 }
 
 /**
- * @brief ESP-IDF entry point: initializes the UARTs and starts the PC receive task.
+ * @brief ESP-IDF entry point: initializes the UARTs, the servo bus task and the PC receive
+ *        task.
  */
 void app_main(void)
 {
     init_uarts();
+    ESP_ERROR_CHECK(arm_bus_start(NULL, NULL));
     xTaskCreate(pc_rx_task, "pc_rx", PC_RX_TASK_STACK_SIZE, NULL, PC_RX_TASK_PRIORITY, NULL);
 }

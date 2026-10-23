@@ -51,4 +51,21 @@ menu "Robotic Arm Configuration"
             Acceleration sent with every goal position, in units of 100 steps/s^2
             (10 = 1000 steps/s^2 ~= 88 deg/s^2). Default matches servo_control_ui.py.
 
+    config ARM_CTL_MOVE_SPEED
+        int "Panel CTL max speed (steps/s)"
+        range 1 3400
+        default 300
+        help
+            Max speed sent with every goal from the local panel (JOINTS screen, CTL mode).
+            Separate from ARM_SERVO_MOVE_SPEED so raising the speed of the M frames for
+            MoveIt does not speed up the panel. 300 ~= 26 deg/s.
+
+    config ARM_CTL_MOVE_ACC
+        int "Panel CTL acceleration (x100 steps/s^2)"
+        range 1 254
+        default 10
+        help
+            Acceleration sent with every goal from the local panel, in units of
+            100 steps/s^2 (10 ~= 88 deg/s^2). Separate from ARM_SERVO_MOVE_ACC.
+
 endmenu
