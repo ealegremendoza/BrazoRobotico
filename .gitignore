@@ -12,6 +12,15 @@ robotic_arm_ws/log/
 **/__pycache__/
 STServo_Python/stservo-env/
 
+# KiCad local and temporary files
+*.kicad_prl
+*-backups/
+*.bak
+~*.lck
+fp-info-cache
+\#auto_saved_files\#
+_autosave-*
+
 # Local tooling state
 .atl/
 .codegraph/
